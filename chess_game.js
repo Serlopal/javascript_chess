@@ -4,6 +4,11 @@ function invert_coord(coord) {
     return Math.abs(coord - 7);
 }
 
+// function to get piece in given coordinates of board
+function piece_at(row, col) {
+    return document.querySelector(".row_" + row + "> .col_" + col).firstChild;
+}
+
 
 // function to check if a movement is valid for each piece and movement
 function valid_move(origin_cell, destiny_cell){
@@ -51,18 +56,24 @@ function valid_move(origin_cell, destiny_cell){
                 dest_row = invert_coord(dest_row);
                 dest_col = invert_coord(dest_col);
             }
+
             if (recv_player == null){
                 // pawns can only move forward
                 if (ori_col !== dest_col){
                     return false;
                 }
-                // pawns can move two cells forward the first time TODO fix cant move 2x if someone in the middle
-                else if (ori_player === "white" && ori_row === 1){
+                // pawns can move two cells forward the first time TODO implement special en passant move
+                else if (ori_row === 1){
                     if (Math.abs(dest_row - ori_row > 2)){
                         return false;
                     }
+                    else if (Math.abs(dest_row - ori_row === 2)){ // check we are not jumping over anyone
+                        if(piece_at(ori_row+1, ori_col)){
+                            return false;
+                        }
+                    }
                 }
-                else if (ori_row - dest_row  > 1){ // pawns can only move 1 cell forward normally
+                else if (dest_row - ori_row  !== 1){ // pawns can only move 1 cell forward normally
                     return false;
                 }
             }
@@ -86,8 +97,7 @@ function valid_move(origin_cell, destiny_cell){
             if (ori_row < dest_row){ // move forward
                 for (i=1;i<dest_row - ori_row;i++){
                     let row2check = (ori_row + i);
-                    // console.log(document.querySelector(".row_" + row2check + "> .col_" + ori_col).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + ori_col).firstChild){
+                    if(piece_at(row2check, ori_col)){
                         return false;
                     }
                 }
@@ -96,16 +106,16 @@ function valid_move(origin_cell, destiny_cell){
                 for (i=1;i<ori_row - dest_row;i++){
                     let row2check = (ori_row - i);
                     // console.log(document.querySelector(".row_" + row2check + "> .col_" + ori_col).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + ori_col).firstChild){
+                    if(piece_at(row2check, ori_col)){
                         return false;
                     }
                 }
             }
-            else if (ori_col < dest_col){ // move right
+            else if (ori_col < dest_col){ // move right TODO check special castling move
                 for (i=1;i<dest_col - ori_col;i++){
                     let col2check = (ori_col + i);
                     // console.log(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild){
+                    if(piece_at(ori_row, col2check)){
                         return false;
                     }
                 }
@@ -114,7 +124,7 @@ function valid_move(origin_cell, destiny_cell){
                 for (i=1;i<ori_col - dest_col;i++){
                     let col2check = (ori_col - i);
                     // console.log(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild){
+                    if(piece_at(ori_row, col2check)){
                         return false;
                     }
                 }
@@ -125,7 +135,21 @@ function valid_move(origin_cell, destiny_cell){
 
             break;
         case "knight":
-            break;
+            // check destination coordinates are one of the 8 places the night can go
+            let valid_moves = [ [ori_row + 1, ori_col+2],
+                                [ori_row + 1, ori_col-2],
+                                [ori_row - 1, ori_col+2],
+                                [ori_row - 1, ori_col-2],
+                                [ori_row + 2, ori_col+1],
+                                [ori_row + 2, ori_col-1],
+                                [ori_row - 2, ori_col+1],
+                                [ori_row - 2, ori_col-1]];
+            for (let i=0; i<valid_moves.length; i++){
+                if (valid_moves[i][0] === dest_row && valid_moves[i][1] === dest_col){
+                    return true;
+                }
+            }
+            return false;
         case "bishop":
             // only if the abs mov is the same in rows and cols, mov is legal. bishops can only move in diagonal
             if (Math.abs(ori_row - dest_row) !== Math.abs(ori_col - dest_col)){
@@ -136,8 +160,7 @@ function valid_move(origin_cell, destiny_cell){
                 for (i=1;i<dest_row - ori_row;i++){
                     let row2check = (ori_row + i);
                     let col2check = (ori_col + i);
-                    console.log(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild){
+                    if(piece_at(row2check, col2check)){
                         return false;
                     }
                 }
@@ -147,8 +170,7 @@ function valid_move(origin_cell, destiny_cell){
                     let row2check = (ori_row + i);
                     let col2check = (ori_col - i);
 
-                    console.log(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild){
+                    if(piece_at(row2check, col2check)){
                         return false;
                     }
                 }
@@ -158,8 +180,7 @@ function valid_move(origin_cell, destiny_cell){
                     let row2check = (ori_row - i);
                     let col2check = (ori_col + i);
 
-                    console.log(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild){
+                    if(piece_at(row2check, col2check)){
                         return false;
                     }
                 }
@@ -168,8 +189,7 @@ function valid_move(origin_cell, destiny_cell){
                 for (i=1;i<ori_col - dest_col;i++){
                     let row2check = (ori_row - i);
                     let col2check = (ori_col - i);
-                    console.log(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild);
-                    if(document.querySelector(".row_" + row2check + "> .col_" + col2check).firstChild){
+                    if(piece_at(row2check, col2check)){
                         return false;
                     }
                 }
@@ -179,9 +199,30 @@ function valid_move(origin_cell, destiny_cell){
             }
             break;
         case "king":
-            break;
+            // check destination is any of the 8 positions surrounding the king
+            for (i=-1; i<2; i++){
+                for (j=-1; j<2; j++){
+                    if (ori_row + i === dest_row && ori_col + j === dest_col){
+                        return true
+                    }
+                }
+            }
+            return false;
         case "queen":
-            break;
+            // queens effectively move as either rook or bishops at each time. We will use their logic to check the move
+            let piece_classes = origin_cell.firstChild.className.split(" ");
+            if (ori_row === dest_row || ori_col === dest_col){ // rook style movement
+                piece_classes[1] = "rook";
+                origin_cell.firstChild.className = piece_classes.join(" ");
+                console.log(valid_move(origin_cell, destiny_cell))
+                return valid_move(origin_cell, destiny_cell);
+            }
+            else{ // bishop style movement
+                piece_classes[1] = "bishop";
+                origin_cell.firstChild.className = piece_classes.join(" ");
+                console.log(valid_move(origin_cell, destiny_cell))
+                return valid_move(origin_cell, destiny_cell);
+            }
     }
 
 
@@ -194,13 +235,15 @@ function valid_move(origin_cell, destiny_cell){
 let pieces = document.querySelectorAll("[class^=\"col\"] > span");
 // initialise flag that signal a piece has been dragged to false
 let piece_dragged = false;
-// initalise variable to store the cell where the piece to be moved lives to null
+// initialise variable to store the cell where the piece to be moved lives to null
 let ori_cell = null;
-// initalise turn
+// initialise turn
 let turn = "white";
+// initialise variable to track rotation of the board and pieces
+let board_rotated = false;
 
 // make pieces draggable
-for (i=0; i < pieces.length; i++){
+for (let i=0; i < pieces.length; i++){
     // makes pieces draggable
     pieces[i].setAttribute("draggable", true);
 }
@@ -252,13 +295,39 @@ document.addEventListener("dragover", function(event) {
 
 // register callback to invert board
 // function to reverse children of an element
-function reverse_board(element){
-    for (let i=1;i<element.childNodes.length;i++){
-        // reverse each col in row
-        for (let j=1;j<element.childNodes[i].childNodes.length;j++) {
-            element.childNodes[i].insertBefore(element.childNodes[i].childNodes[j], element.childNodes[i].firstChild);
-        }
-        // now reverse row
-        element.insertBefore(element.childNodes[i], element.firstChild);
+
+function reverse_board() {
+    let pcs = document.querySelectorAll("[class^=\"col\"] > span");
+    let brd = document.querySelector("#board");
+
+    let deg = board_rotated? 0 : 180;
+
+    brd.style.mozTransform    = 'rotate('+deg+'deg)';
+    brd.style.msTransform     = 'rotate('+deg+'deg)';
+    brd.style.oTransform      = 'rotate('+deg+'deg)';
+    brd.style.transform       = 'rotate('+deg+'deg)';
+
+    for (let i=0; i < pcs.length; i++){
+        pcs[i].style.mozTransform    = 'rotate('+deg+'deg)';
+        pcs[i].style.msTransform     = 'rotate('+deg+'deg)';
+        pcs[i].style.oTransform      = 'rotate('+deg+'deg)';
+        pcs[i].style.transform       = 'rotate('+deg+'deg)';
     }
+
+    board_rotated = !board_rotated;
 }
+
+
+
+
+
+// function reverse_board(element){
+//     for (let i=1;i<element.childNodes.length;i++){
+//         // reverse each col in row
+//         for (let j=1;j<element.childNodes[i].childNodes.length;j++) {
+//             element.childNodes[i].insertBefore(element.childNodes[i].childNodes[j], element.childNodes[i].firstChild);
+//         }
+//         // now reverse row
+//         element.insertBefore(element.childNodes[i], element.firstChild);
+//     }
+// }

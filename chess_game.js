@@ -1,16 +1,190 @@
 
 // function to invert coords
+// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
 function invert_coord(coord) {
     return Math.abs(coord - 7);
 }
 
 // function to get piece in given coordinates of board
+// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
 function piece_at(row, col) {
     return document.querySelector(".row_" + row + "> .col_" + col).firstChild;
 }
 
+// function to get piece in given coordinates of board
+// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
+function cell_at(row, col) {
+    return document.querySelector(".row_" + row + "> .col_" + col);
+}
+
+
+
+let virtual_board = {
+                        curr_valid_moves: null,
+
+                        board: [["white rook", "white knight", "white bishop", "white king", "white queen", "white bishop", "white knight", "white rook"],
+                                ["white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn"],
+                                [null, null, null,  null, null, null, null, null],
+                                [null, null, null,  null, null, null, null, null],
+                                [null, null, null,  null, null, null, null, null],
+                                [null, null, null,  null, null, null, null, null],
+                                ["black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn"],
+                                ["black rook", "black knight", "black bishop", "black king", "black queen", "black bishop", "black knight", "black rook"],
+                               ],
+
+                        current_player: "white",
+
+
+                        // METHODS
+
+                        // invert turn method
+                        invert_turn: function(){
+                            if (this.current_player === "white"){
+                                this.current_player = "black";
+                            }
+                            else{
+                                this.current_player = "white";
+                            }
+                        },
+
+                        // function to get piece in given coordinates of board
+                        piece_at: function (row, col) {
+                            return this.board[row][col];
+                        },
+
+                        piece2player: function (piece){
+                            return piece.split(" ")[0];
+                        },
+
+                        validate_move: function (dest_cell) {
+                            let dest_coords = this.cell2cords(dest_cell);
+
+                            // destination coords must be included in list of valid moves created at dragstart
+                            for (i=0;i<this.curr_valid_moves.length;i++){
+                                if(this.curr_valid_moves[i][0] === dest_coords[0] &&
+                                   this.curr_valid_moves[i][1] === dest_coords[1]){
+                                    return true;
+                                }
+                            }
+                            return false;
+
+                        },
+
+                        get_valid_moves: function(ori_cell, board){
+                                let ori_coords = this.cell2cords(ori_cell);
+                                // get piece type in the selected coordinates
+                                let [player, piece] = board[ori_coords[0]][ori_coords[1]].split(" ");
+
+                                // fill valid moves using board, player, piece and ori_coords
+                                let valid_moves = this[piece + "_generator"](ori_coords, board);
+                                // filter valid moves using the general generator, that discards moves using general rules
+                                valid_moves = this.general_generator(valid_moves);
+
+
+                                // after checking move is correct, check king cannot be attacked by any enemy piece
+                                // for each of these available moves. Remove move from list if any enemy piece threatens
+                                // king after that movement.
+                                    // build new board after movement
+
+                                    // call get_valid_moves with that new board for all enemy pieces and check
+                                    // no piece can move to the kings position in that board
+
+
+                                //store current valid moves
+                                this.curr_valid_moves = valid_moves;
+                                return valid_moves
+                        },
+
+                        cell2cords: function (cell) {
+                            // extract coordinates and piece of moving piece
+                            let row = Number(cell.parentElement.className.split("_")[1]);
+                            let col = Number(cell.className.split("_")[1]);
+
+                            let coords = [row, col];
+
+                            return coords;
+
+                        },
+
+                        update: function (ori_cell, dest_cell) {
+                            ori_coords = this.cell2cords(ori_cell);
+                            dest_coords = this.cell2cords(dest_cell);
+                            // move piece to destination
+                            this.board[dest_coords[0]][dest_coords[1]] = this.board[ori_coords[0]][ori_coords[1]];
+                            // remove piece from origin
+                            this.board[ori_coords[0]][ori_coords[1]] = "";
+
+                        },
+
+
+                        // methods to obtain available moves for a piece and a certain board
+                        "pawn_generator":   function (coords, board) {
+
+                            let [row, col] = coords;
+                            console.log(this.current_player)
+                            let valid_moves = [];
+                            if (this.current_player === "black"){
+                                valid_moves.push([row-1, col]);
+                                if (row === 6 && !this.piece_at(row-1, col)){
+                                    valid_moves.push([row-2, col])
+                                }
+                            }
+                            else{
+                                valid_moves.push([row+1, col]);
+                                if (row === 1 && !this.piece_at(row+1, col)){
+                                    valid_moves.push([row+2, col])
+                                }
+                            }
+                            return valid_moves;
+
+
+
+                        },
+                        "rook_generator":   function (coords, board) {},
+                        "knight_generator":  function (coords, board)    {
+                            let [row, col] = coords;
+                            // check destination coordinates are one of the 8 places the night can go
+                            let valid_moves = [ [row + 1, col+2],
+                                                [row + 1, col-2],
+                                                [row - 1, col+2],
+                                                [row - 1, col-2],
+                                                [row + 2, col+1],
+                                                [row + 2, col-1],
+                                                [row - 2, col+1],
+                                                [row - 2, col-1]];
+                            return valid_moves;
+                        },
+                        "bishop_generator": function (coords, board) {},
+                        "king_generator":   function (coords, board) {},
+                        "queen_generator":  function (coords, board) {},
+                        // method to filter out invalid moves based on general rules that aply to all pieces
+                        general_generator: function (potential_moves) {
+                            let valid_moves = [];
+                            for (let i=0; i < potential_moves.length; i++){
+                                // check movement is inside board
+                                if ((potential_moves[i][0] < 0 || potential_moves[i][0] > 7 ) ||
+                                    (potential_moves[i][1] < 0 || potential_moves[i][1] > 7 )){
+                                        continue;
+                                    }
+                                // check movement is not to a cell occupied by a piece of the same player
+                                let recv_piece = this.piece_at(potential_moves[i][0], potential_moves[i][1]);
+                                if (recv_piece){
+                                    if (this.piece2player(recv_piece) === this.current_player){
+                                        continue;
+                                    }
+                                }
+
+                                valid_moves.push(potential_moves[i]);
+
+                            }
+                            return valid_moves;
+                        }
+                    };
+
+
 
 // function to check if a movement is valid for each piece and movement
+// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
 function valid_move(origin_cell, destiny_cell){
 
 
@@ -237,10 +411,10 @@ let pieces = document.querySelectorAll("[class^=\"col\"] > span");
 let piece_dragged = false;
 // initialise variable to store the cell where the piece to be moved lives to null
 let ori_cell = null;
-// initialise turn
-let turn = "white";
 // initialise variable to track rotation of the board and pieces
 let board_rotated = false;
+// initialise variable to track available moves at each movement, so as to reset their styling after the move
+let available_moves = null;
 
 // make pieces draggable
 for (let i=0; i < pieces.length; i++){
@@ -250,8 +424,17 @@ for (let i=0; i < pieces.length; i++){
 // register callback for drag start
 document.addEventListener("dragstart", function (event) {
     // we must drag a piece and it must belong to the player to whom the turn belongs
-    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===turn) {
+    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===virtual_board.current_player) {
+        // compute available moves and highlight them
         ori_cell = event.target.parentElement;
+        // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
+        available_moves = virtual_board.get_valid_moves(ori_cell, virtual_board.board);
+        for (i=0;i<available_moves.length;i++){
+            let [row, col] = available_moves[i];
+            cell_at(row, col).style.backgroundColor = "green";
+        }
+
+        // flag we have dragged a piece
         piece_dragged = true;
     }
 });
@@ -270,18 +453,25 @@ document.addEventListener("drop", function (event) {
         }
 
         // now move if the movement is valid
-        if (valid_move(ori_cell, dest_cell)){
+        if (virtual_board.validate_move(dest_cell)){
+            // move piece to desination
             dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
+            // remove piece from origin
             ori_cell.innerHTML = "";
+            // update virtual board
+            virtual_board.update(ori_cell, dest_cell);
+            // unflag drag event
             piece_dragged = false;
+            // reverse board for the next player
             reverse_board(document.querySelector("#board"));
             // change turn
-            if (turn === "white"){
-                turn = "black";
-            }
-            else{
-                turn = "white";
-            }
+            virtual_board.invert_turn()
+        }
+
+        // remove highlighting of possible moves once this one has finished
+        for (i=0;i<available_moves.length;i++){
+            let [row, col] = available_moves[i];
+            cell_at(row, col).style.backgroundColor = "";
         }
     }
 });

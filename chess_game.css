@@ -1,0 +1,75 @@
+
+
+
+body{
+    background-color: #232323;
+}
+
+
+h1 {
+    color: white;
+    text-align: center;
+}
+
+#aligner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+#board {
+    position: center;
+  display:flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  width: 400px;
+  height: 400px;
+}
+
+[class^="row"] {
+  display:flex;
+  flex-direction: row;
+}
+
+[class^="col"] {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+
+  width: 50px;
+  height: 50px;
+
+  cursor: default;
+}
+
+[class^="row"]:nth-child(odd) > [class^="col"]:nth-child(even){
+  background-color:sandybrown;
+}
+[class^="row"]:nth-child(even) > [class^="col"]:nth-child(odd){
+  background-color:sandybrown;
+}
+[class^="row"]:nth-child(odd) > [class^="col"]:nth-child(odd){
+  background-color:gray;
+}
+[class^="row"]:nth-child(even) > [class^="col"]:nth-child(even){
+  background-color:gray;
+}
+
+
+/*paint pieces black and white*/
+
+.white{
+  font-size: 42px;
+  color: #eaecef;
+}
+
+.black{
+  font-size: 42px;
+  color: black;
+}
+
+.piece:active {
+      background: transparent;
+}

@@ -6,13 +6,14 @@ function invert_coord(coord) {
 }
 
 // function to get piece in given coordinates of board
-// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
 function piece_at(row, col) {
+    if (row > 7 || row < 0 || col > 7 || col < 0){
+        return null
+    }
     return document.querySelector(".row_" + row + "> .col_" + col).firstChild;
 }
 
 // function to get piece in given coordinates of board
-// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
 function cell_at(row, col) {
     return document.querySelector(".row_" + row + "> .col_" + col);
 }
@@ -78,7 +79,7 @@ let virtual_board = {
                                 // fill valid moves using board, player, piece and ori_coords
                                 let valid_moves = this[piece + "_generator"](ori_coords, board);
                                 // filter valid moves using the general generator, that discards moves using general rules
-                                valid_moves = this.general_generator(valid_moves);
+                                valid_moves = this.general_move_filter(valid_moves);
 
 
                                 // after checking move is correct, check king cannot be attacked by any enemy piece
@@ -106,6 +107,10 @@ let virtual_board = {
 
                         },
 
+                        coords_outof_board: function(row, col) {
+                            return row < 0 || row > 7 || col < 0 || col > 7
+                        },
+
                         update: function (ori_cell, dest_cell) {
                             ori_coords = this.cell2cords(ori_cell);
                             dest_coords = this.cell2cords(dest_cell);
@@ -119,29 +124,38 @@ let virtual_board = {
 
                         // methods to obtain available moves for a piece and a certain board
                         "pawn_generator":   function (coords, board) {
-
                             let [row, col] = coords;
-                            console.log(this.current_player)
+                            let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+
                             let valid_moves = [];
-                            if (this.current_player === "black"){
-                                valid_moves.push([row-1, col]);
-                                if (row === 6 && !this.piece_at(row-1, col)){
-                                    valid_moves.push([row-2, col])
+
+                            // can move forward if it is empty
+                            if (!this.piece_at(row + player_dir, col)) {
+                                valid_moves.push([row + player_dir, col]);
+                                // can move double if we are in the start row
+                                if (row === start_row){
+                                    valid_moves.push([row+player_dir*2, col]);
                                 }
                             }
-                            else{
-                                valid_moves.push([row+1, col]);
-                                if (row === 1 && !this.piece_at(row+1, col)){
-                                    valid_moves.push([row+2, col])
-                                }
+                            // can move diagonally forward-right if it is to attack an enemy
+                            let piece2theright = this.piece_at(row+player_dir, col+player_dir);
+                            let piece2theleft = this.piece_at(row+player_dir, col-player_dir);
+                            if (piece2theright && this.piece2player(piece2theright) !== this.current_player){
+                                valid_moves.push([row+player_dir, col+player_dir]);
                             }
+                            if (piece2theleft && this.piece2player(piece2theleft) !== this.current_player){
+                                valid_moves.push([row+player_dir, col-player_dir]);
+                            }
+
                             return valid_moves;
 
-
-
+                            },
+                        "rook_generator":   function (coords, board) {
+                            let [pdir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+                            let dirs = [[pdir, 0], [0, pdir], [-pdir, 0], [0, -pdir]];
+                            return this.radial_generator(coords, board, dirs)
                         },
-                        "rook_generator":   function (coords, board) {},
-                        "knight_generator":  function (coords, board)    {
+                        "knight_generator":  function (coords, board) {
                             let [row, col] = coords;
                             // check destination coordinates are one of the 8 places the night can go
                             let valid_moves = [ [row + 1, col+2],
@@ -154,16 +168,36 @@ let virtual_board = {
                                                 [row - 2, col-1]];
                             return valid_moves;
                         },
-                        "bishop_generator": function (coords, board) {},
-                        "king_generator":   function (coords, board) {},
-                        "queen_generator":  function (coords, board) {},
+                        "bishop_generator": function (coords, board) {
+                            let [pdir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+                            let dirs = [[pdir, pdir], [pdir, -pdir], [-pdir, -pdir], [-pdir, pdir]];
+                            return this.radial_generator(coords, board, dirs)
+                        },
+                        "king_generator":   function (coords, board) {
+                            let [row, col] = coords;
+                            let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+                            let valid_moves = [ [row + 1, col],
+                                                [row + 1, col+1],
+                                                [row, col + 1],
+                                                [row - 1, col + 1],
+                                                [row - 1, col],
+                                                [row - 1, col-1],
+                                                [row, col-1],
+                                                [row + 1, col-1]];
+                            return valid_moves;
+                        },
+                        "queen_generator":  function (coords, board) {
+                            let [pdir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+                            let dirs = [[pdir, 0], [0, pdir], [-pdir, 0], [0, -pdir],
+                                        [pdir, pdir], [pdir, -pdir], [-pdir, -pdir], [-pdir, pdir]];
+                            return this.radial_generator(coords, board, dirs)
+                        },
                         // method to filter out invalid moves based on general rules that aply to all pieces
-                        general_generator: function (potential_moves) {
+                        general_move_filter: function (potential_moves) {
                             let valid_moves = [];
                             for (let i=0; i < potential_moves.length; i++){
                                 // check movement is inside board
-                                if ((potential_moves[i][0] < 0 || potential_moves[i][0] > 7 ) ||
-                                    (potential_moves[i][1] < 0 || potential_moves[i][1] > 7 )){
+                                if (this.coords_outof_board(potential_moves[i][0], potential_moves[i][1])){
                                         continue;
                                     }
                                 // check movement is not to a cell occupied by a piece of the same player
@@ -178,231 +212,31 @@ let virtual_board = {
 
                             }
                             return valid_moves;
+                        },
+                        // method to generate radial movements using custom radiuses for rooks, bishops and queen
+                        radial_generator: function (coords, board, dirs) {
+                            let [row, col] = coords;
+                            let valid_moves = [];
+
+                            for(i=0;i<dirs.length;i++){
+                                for (j=1;j<8;j++){
+                                    let mov = [row+dirs[i][0]*j, col+dirs[i][1]*j];
+                                    if(this.coords_outof_board(mov[0], mov[1])){
+                                        break;
+                                    }
+                                    if(this.piece_at(mov[0], mov[1])){
+                                        if(this.piece2player(this.piece_at(mov[0], mov[1])) !== this.current_player){
+                                            valid_moves.push([mov[0], mov[1]]);
+                                        }
+                                        break;
+                                    }
+                                    valid_moves.push([mov[0], mov[1]]);
+
+                                }
+                            }
+                            return valid_moves;
                         }
                     };
-
-
-
-// function to check if a movement is valid for each piece and movement
-// TODO REMOVE THIS AFTER TRANSFER TO VIRTUAL BOARD GENERATORS
-function valid_move(origin_cell, destiny_cell){
-
-
-    // extract coordinates and piece of moving piece
-    let ori_row = Number(origin_cell.parentElement.className.split("_")[1]);
-    let ori_col = Number(origin_cell.className.split("_")[1]);
-    let [ori_player, ori_piece] = origin_cell.querySelector("span").className.split(" ").slice(0,2);
-
-
-    // extract coordinates and piece of receiving piece
-    let dest_row = Number(destiny_cell.parentElement.className.split("_")[1]);
-    let dest_col = Number(destiny_cell.className.split("_")[1]);
-
-
-    // if we take our piece to an empty cell, the recv piece and player are null
-    let recv_piece = destiny_cell.querySelector("span");
-    let recv_player = null;
-    if (recv_piece != null){
-        [recv_player, recv_piece] = destiny_cell.querySelector("span").className.split(" ").slice(0,2);
-    }
-
-
-    // let ori_coords = [ori_row, ori_col];
-    // let dest_coords = [dest_row, dest_col];
-    // console.log(ori_coords);
-    // console.log(dest_coords);
-
-
-    // if we have tried to kill a piece of our own, the movement is not valid
-    if (recv_player != null && recv_player === ori_player){
-        return false;
-    }
-
-
-    // now lets decide if the movement is valid depending on the type of piece it is
-    switch(ori_piece) {
-        case "pawn":
-            // at the black player's turn, invert coordinate system to a bottom left 0,0 one
-            // (this only matters for pawns that can only move forward)
-            if (ori_player === "black"){
-                ori_row = invert_coord(ori_row);
-                ori_col = invert_coord(ori_col);
-                dest_row = invert_coord(dest_row);
-                dest_col = invert_coord(dest_col);
-            }
-
-            if (recv_player == null){
-                // pawns can only move forward
-                if (ori_col !== dest_col){
-                    return false;
-                }
-                // pawns can move two cells forward the first time TODO implement special en passant move
-                else if (ori_row === 1){
-                    if (Math.abs(dest_row - ori_row > 2)){
-                        return false;
-                    }
-                    else if (Math.abs(dest_row - ori_row === 2)){ // check we are not jumping over anyone
-                        if(piece_at(ori_row+1, ori_col)){
-                            return false;
-                        }
-                    }
-                }
-                else if (dest_row - ori_row  !== 1){ // pawns can only move 1 cell forward normally
-                    return false;
-                }
-            }
-            else{ // in case we attempt to eat another piece with out pawn
-                // pawns can only it in diagonal, one cell forward
-                if(dest_row - ori_row !== 1){ // can only eat one cell forward
-                    return false;
-                }
-                if (Math.abs(dest_col - ori_col) !== 1){ // can only eat one cell forward
-                    return false;
-                }
-            }
-
-            break;
-        case "rook":
-            // if both col and row change, movement is illegal. rooks can only move in straight lines
-            if (ori_row !== dest_row && ori_col !== dest_col){
-                return false;
-            }
-            // the rook can move in 4 different directions
-            if (ori_row < dest_row){ // move forward
-                for (i=1;i<dest_row - ori_row;i++){
-                    let row2check = (ori_row + i);
-                    if(piece_at(row2check, ori_col)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_row > dest_row){ // move backwards
-                for (i=1;i<ori_row - dest_row;i++){
-                    let row2check = (ori_row - i);
-                    // console.log(document.querySelector(".row_" + row2check + "> .col_" + ori_col).firstChild);
-                    if(piece_at(row2check, ori_col)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_col < dest_col){ // move right TODO check special castling move
-                for (i=1;i<dest_col - ori_col;i++){
-                    let col2check = (ori_col + i);
-                    // console.log(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild);
-                    if(piece_at(ori_row, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_col > dest_col){ // move left
-                for (i=1;i<ori_col - dest_col;i++){
-                    let col2check = (ori_col - i);
-                    // console.log(document.querySelector(".row_" + ori_row + "> .col_" + col2check).firstChild);
-                    if(piece_at(ori_row, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else {
-                console.log("Rook not moving in any of the 4 mandatory dimensions.")
-            }
-
-            break;
-        case "knight":
-            // check destination coordinates are one of the 8 places the night can go
-            let valid_moves = [ [ori_row + 1, ori_col+2],
-                                [ori_row + 1, ori_col-2],
-                                [ori_row - 1, ori_col+2],
-                                [ori_row - 1, ori_col-2],
-                                [ori_row + 2, ori_col+1],
-                                [ori_row + 2, ori_col-1],
-                                [ori_row - 2, ori_col+1],
-                                [ori_row - 2, ori_col-1]];
-            for (let i=0; i<valid_moves.length; i++){
-                if (valid_moves[i][0] === dest_row && valid_moves[i][1] === dest_col){
-                    return true;
-                }
-            }
-            return false;
-        case "bishop":
-            // only if the abs mov is the same in rows and cols, mov is legal. bishops can only move in diagonal
-            if (Math.abs(ori_row - dest_row) !== Math.abs(ori_col - dest_col)){
-                return false;
-            }
-            // the bishop can move in 4 different directions
-            if (ori_row < dest_row && ori_col < dest_col){ // move north-east
-                for (i=1;i<dest_row - ori_row;i++){
-                    let row2check = (ori_row + i);
-                    let col2check = (ori_col + i);
-                    if(piece_at(row2check, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_row < dest_row && ori_col > dest_col){ // move north-west
-                for (i=1;i<dest_row - ori_row;i++){
-                    let row2check = (ori_row + i);
-                    let col2check = (ori_col - i);
-
-                    if(piece_at(row2check, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_row > dest_row && ori_col < dest_col){ // move south-east
-                for (i=1;i<dest_col - ori_col;i++){
-                    let row2check = (ori_row - i);
-                    let col2check = (ori_col + i);
-
-                    if(piece_at(row2check, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else if (ori_row > dest_row && ori_col > dest_col){ // move south-west
-                for (i=1;i<ori_col - dest_col;i++){
-                    let row2check = (ori_row - i);
-                    let col2check = (ori_col - i);
-                    if(piece_at(row2check, col2check)){
-                        return false;
-                    }
-                }
-            }
-            else {
-                console.log("Rook not moving in any of the 4 mandatory dimensions.")
-            }
-            break;
-        case "king":
-            // check destination is any of the 8 positions surrounding the king
-            for (i=-1; i<2; i++){
-                for (j=-1; j<2; j++){
-                    if (ori_row + i === dest_row && ori_col + j === dest_col){
-                        return true
-                    }
-                }
-            }
-            return false;
-        case "queen":
-            // queens effectively move as either rook or bishops at each time. We will use their logic to check the move
-            let piece_classes = origin_cell.firstChild.className.split(" ");
-            if (ori_row === dest_row || ori_col === dest_col){ // rook style movement
-                piece_classes[1] = "rook";
-                origin_cell.firstChild.className = piece_classes.join(" ");
-                console.log(valid_move(origin_cell, destiny_cell))
-                return valid_move(origin_cell, destiny_cell);
-            }
-            else{ // bishop style movement
-                piece_classes[1] = "bishop";
-                origin_cell.firstChild.className = piece_classes.join(" ");
-                console.log(valid_move(origin_cell, destiny_cell))
-                return valid_move(origin_cell, destiny_cell);
-            }
-    }
-
-
-
-    return true;
-}
 
 
 // select all pieces

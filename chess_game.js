@@ -38,6 +38,14 @@ let virtual_board = {
 
                         // METHODS
 
+                        // clone board by value
+                        clone_board: function (){
+                            let new_board = [];
+                            for (var i = 0; i < this.board.length; i++)
+                                new_board[i] = this.board[i].slice();
+                            return new_board;
+                        },
+
                         // invert turn method
                         invert_turn: function(){
                             if (this.current_player === "white"){
@@ -49,8 +57,8 @@ let virtual_board = {
                         },
 
                         // function to get piece in given coordinates of board
-                        piece_at: function (row, col) {
-                            return this.board[row][col];
+                        piece_at: function (row, col, board) {
+                            return board[row][col];
                         },
 
                         piece2player: function (piece){
@@ -71,28 +79,48 @@ let virtual_board = {
 
                         },
 
-                        get_valid_moves: function(ori_cell, board){
-                                let ori_coords = this.cell2cords(ori_cell);
+                        apply_move: function (board, ori, dest){
+                            board[dest[0]][dest[1]] = board[ori[0]][ori[1]];
+                            board[ori[0]][ori[1]] = "";
+                            return board;
+                        },
+
+                        get_valid_moves: function(ori_coords, board, isfuture=false){
+                                // invert player momentarily if we are looking into the future
+                                if (isfuture){
+                                    this.invert_turn()
+                                }
+
                                 // get piece type in the selected coordinates
                                 let [player, piece] = board[ori_coords[0]][ori_coords[1]].split(" ");
 
                                 // fill valid moves using board, player, piece and ori_coords
                                 let valid_moves = this[piece + "_generator"](ori_coords, board);
+
                                 // filter valid moves using the general generator, that discards moves using general rules
-                                valid_moves = this.general_move_filter(valid_moves);
+                                valid_moves = this.general_move_filter(valid_moves, board);
+
+                                if (piece === "bishop" && player==="black") {
+                                    console.log(board);
+                                    console.log(player, piece);
+                                    for (let i = 0; i < valid_moves.length; i++) {
+                                        console.log(valid_moves[i]);
+                                    }
+                                }
+
+                                if (isfuture){
+                                    // pass
+                                    this.invert_turn()
+                                }
+                                else{
+                                    // filter valid moves using the exposed_king filter
+                                    valid_moves = this.exposed_king_filter(ori_coords, valid_moves);
+                                    //store current valid moves
+                                    this.curr_valid_moves = valid_moves;
+                                }
 
 
-                                // after checking move is correct, check king cannot be attacked by any enemy piece
-                                // for each of these available moves. Remove move from list if any enemy piece threatens
-                                // king after that movement.
-                                    // build new board after movement
 
-                                    // call get_valid_moves with that new board for all enemy pieces and check
-                                    // no piece can move to the kings position in that board
-
-
-                                //store current valid moves
-                                this.curr_valid_moves = valid_moves;
                                 return valid_moves
                         },
 
@@ -130,7 +158,7 @@ let virtual_board = {
                             let valid_moves = [];
 
                             // can move forward if it is empty
-                            if (!this.piece_at(row + player_dir, col)) {
+                            if (!this.piece_at(row + player_dir, col, board)) {
                                 valid_moves.push([row + player_dir, col]);
                                 // can move double if we are in the start row
                                 if (row === start_row){
@@ -138,8 +166,8 @@ let virtual_board = {
                                 }
                             }
                             // can move diagonally forward-right if it is to attack an enemy
-                            let piece2theright = this.piece_at(row+player_dir, col+player_dir);
-                            let piece2theleft = this.piece_at(row+player_dir, col-player_dir);
+                            let piece2theright = this.piece_at(row+player_dir, col+player_dir, board);
+                            let piece2theleft = this.piece_at(row+player_dir, col-player_dir, board);
                             if (piece2theright && this.piece2player(piece2theright) !== this.current_player){
                                 valid_moves.push([row+player_dir, col+player_dir]);
                             }
@@ -158,15 +186,14 @@ let virtual_board = {
                         "knight_generator":  function (coords, board) {
                             let [row, col] = coords;
                             // check destination coordinates are one of the 8 places the night can go
-                            let valid_moves = [ [row + 1, col+2],
-                                                [row + 1, col-2],
-                                                [row - 1, col+2],
-                                                [row - 1, col-2],
-                                                [row + 2, col+1],
-                                                [row + 2, col-1],
-                                                [row - 2, col+1],
-                                                [row - 2, col-1]];
-                            return valid_moves;
+                            return [[row + 1, col+2],
+                                   [row + 1, col-2],
+                                   [row - 1, col+2],
+                                   [row - 1, col-2],
+                                   [row + 2, col+1],
+                                   [row + 2, col-1],
+                                   [row - 2, col+1],
+                                   [row - 2, col-1]];
                         },
                         "bishop_generator": function (coords, board) {
                             let [pdir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
@@ -176,15 +203,14 @@ let virtual_board = {
                         "king_generator":   function (coords, board) {
                             let [row, col] = coords;
                             let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
-                            let valid_moves = [ [row + 1, col],
-                                                [row + 1, col+1],
-                                                [row, col + 1],
-                                                [row - 1, col + 1],
-                                                [row - 1, col],
-                                                [row - 1, col-1],
-                                                [row, col-1],
-                                                [row + 1, col-1]];
-                            return valid_moves;
+                            return [[row + 1, col],
+                                   [row + 1, col+1],
+                                   [row, col + 1],
+                                   [row - 1, col + 1],
+                                   [row - 1, col],
+                                   [row - 1, col-1],
+                                   [row, col-1],
+                                   [row + 1, col-1]];
                         },
                         "queen_generator":  function (coords, board) {
                             let [pdir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
@@ -193,7 +219,7 @@ let virtual_board = {
                             return this.radial_generator(coords, board, dirs)
                         },
                         // method to filter out invalid moves based on general rules that aply to all pieces
-                        general_move_filter: function (potential_moves) {
+                        general_move_filter: function (potential_moves, board) {
                             let valid_moves = [];
                             for (let i=0; i < potential_moves.length; i++){
                                 // check movement is inside board
@@ -201,7 +227,7 @@ let virtual_board = {
                                         continue;
                                     }
                                 // check movement is not to a cell occupied by a piece of the same player
-                                let recv_piece = this.piece_at(potential_moves[i][0], potential_moves[i][1]);
+                                let recv_piece = this.piece_at(potential_moves[i][0], potential_moves[i][1], board);
                                 if (recv_piece){
                                     if (this.piece2player(recv_piece) === this.current_player){
                                         continue;
@@ -213,6 +239,59 @@ let virtual_board = {
                             }
                             return valid_moves;
                         },
+
+                        // method to filter out invalid moves based on whether they leave the king exposed
+                        exposed_king_filter: function(ori_coords, potential_moves){
+                            let valid_moves = [];
+                            // after checking move is correct, check king cannot be attacked by any enemy piece
+                            // for each of these available moves. Remove move from list if any enemy piece threatens
+                            // king after that movement.
+
+                            // for each potentially valid movement
+                            for(let i=0;i<potential_moves.length;i++){
+                                // flag to indicate the movement has been identified as invalid
+                                let is_invalid = false;
+                                // build the board that movement would end up in
+                                    let after_board = this.apply_move(this.clone_board(), ori_coords, potential_moves[i]);
+                                // find coords of player's king
+                                let king_coords = null;
+                                for(let x=0;x<8;x++) {
+                                    for(let y=0;y<8;y++) {
+                                        if(this.piece_at(x, y, after_board) === this.current_player + " king"){
+                                            king_coords = [x,y];
+                                        }
+                                    }
+                                }
+
+
+                                // for each piece of the opposite player
+                                for_each_enemy:
+                                    for(let x=0;x<8;x++) {
+                                        for(let y=0;y<8;y++) {
+                                            if(!this.piece_at(x, y, after_board)){continue;}
+                                            if(this.piece2player(this.piece_at(x, y, after_board)) !== this.current_player){
+                                                // get valid movements for this piece in this possible future board
+                                                let after_valid_moves = this.get_valid_moves([x,y], after_board, isfuture=true);
+                                                // the move is illegal if this piece can move to the kings position next
+                                                for(let q=0;q<after_valid_moves.length;q++) {
+                                                    if (after_valid_moves[q][0] === king_coords[0] &&
+                                                        after_valid_moves[q][1] === king_coords[1]){
+                                                        is_invalid = true;
+                                                        break for_each_enemy;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                if (!is_invalid){
+                                    valid_moves.push(potential_moves[i])
+                                }
+                            }
+                            return valid_moves;
+
+                        },
+
+
                         // method to generate radial movements using custom radiuses for rooks, bishops and queen
                         radial_generator: function (coords, board, dirs) {
                             let [row, col] = coords;
@@ -224,8 +303,8 @@ let virtual_board = {
                                     if(this.coords_outof_board(mov[0], mov[1])){
                                         break;
                                     }
-                                    if(this.piece_at(mov[0], mov[1])){
-                                        if(this.piece2player(this.piece_at(mov[0], mov[1])) !== this.current_player){
+                                    if(this.piece_at(mov[0], mov[1], board)){
+                                        if(this.piece2player(this.piece_at(mov[0], mov[1], board)) !== this.current_player){
                                             valid_moves.push([mov[0], mov[1]]);
                                         }
                                         break;
@@ -262,10 +341,10 @@ document.addEventListener("dragstart", function (event) {
         // compute available moves and highlight them
         ori_cell = event.target.parentElement;
         // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
-        available_moves = virtual_board.get_valid_moves(ori_cell, virtual_board.board);
+        available_moves = virtual_board.get_valid_moves(virtual_board.cell2cords(ori_cell), virtual_board.board);
         for (i=0;i<available_moves.length;i++){
             let [row, col] = available_moves[i];
-            cell_at(row, col).style.backgroundColor = "green";
+            cell_at(row, col).style.backgroundColor = "white";
         }
 
         // flag we have dragged a piece

@@ -23,17 +23,24 @@ function cell_at(row, col) {
 let virtual_board = {
                         curr_valid_moves: null,
 
-                        board: [["white rook", "white knight", "white bishop", "white king", "white queen", "white bishop", "white knight", "white rook"],
+                        board: [["white rook", "white knight", "white bishop", "white queen", "white king", "white bishop", "white knight", "white rook"],
                                 ["white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn", "white pawn"],
                                 [null, null, null,  null, null, null, null, null],
                                 [null, null, null,  null, null, null, null, null],
                                 [null, null, null,  null, null, null, null, null],
                                 [null, null, null,  null, null, null, null, null],
                                 ["black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn", "black pawn"],
-                                ["black rook", "black knight", "black bishop", "black king", "black queen", "black bishop", "black knight", "black rook"],
+                                ["black rook", "black knight", "black bishop", "black queen", "black king", "black bishop", "black knight", "black rook"],
                                ],
 
                         current_player: "white",
+
+                        //special moves
+                        enpassant_active: false,
+                        enpassant_row: null,
+                        enpassant_col: null,
+
+
 
 
                         // METHODS
@@ -63,6 +70,10 @@ let virtual_board = {
 
                         piece2player: function (piece){
                             return piece.split(" ")[0];
+                        },
+
+                        piece2type: function (piece){
+                            return piece.split(" ")[1];
                         },
 
                         validate_move: function (dest_cell) {
@@ -100,13 +111,6 @@ let virtual_board = {
                                 // filter valid moves using the general generator, that discards moves using general rules
                                 valid_moves = this.general_move_filter(valid_moves, board);
 
-                                if (piece === "bishop" && player==="black") {
-                                    console.log(board);
-                                    console.log(player, piece);
-                                    for (let i = 0; i < valid_moves.length; i++) {
-                                        console.log(valid_moves[i]);
-                                    }
-                                }
 
                                 if (isfuture){
                                     // pass
@@ -139,13 +143,39 @@ let virtual_board = {
                             return row < 0 || row > 7 || col < 0 || col > 7
                         },
 
+                        force_erase: function(row, col){
+                            this.board[row][col] = null;
+                        },
+
                         update: function (ori_cell, dest_cell) {
                             ori_coords = this.cell2cords(ori_cell);
                             dest_coords = this.cell2cords(dest_cell);
+
+
+                            // SPECIAL MOVES
+                            // check this is pawn double move and activate EN PASSANT flag
+                            let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+                            if (this.piece2type(this.piece_at(ori_coords[0], ori_coords[1], this.board)) === "pawn" &&
+                                ori_coords[0] === start_row && Math.abs(dest_coords[0] - ori_coords[0]) === 2) {
+                                console.log("EN PASSANT ACTIVATED");
+                                this.enpassant_active = true;
+                                this.enpassant_row = dest_coords[0] - player_dir;
+                                this.enpassant_col = dest_coords[1];
+
+                            }
+                            // deactivate enpassant after
+                            else{
+                                this.enpassant_active = false;
+                                this.enpassant_row = null;
+                                this.enpassant_col = null;
+                            }
+
                             // move piece to destination
-                            this.board[dest_coords[0]][dest_coords[1]] = this.board[ori_coords[0]][ori_coords[1]];
+                            this.board[dest_coords[0]][dest_coords[1]] = this.piece_at(ori_coords[0], ori_coords[1], this.board);
                             // remove piece from origin
                             this.board[ori_coords[0]][ori_coords[1]] = "";
+
+
 
                         },
 
@@ -174,6 +204,20 @@ let virtual_board = {
                             if (piece2theleft && this.piece2player(piece2theleft) !== this.current_player){
                                 valid_moves.push([row+player_dir, col-player_dir]);
                             }
+
+                            // EN PASSANT
+                            // can also move diagonally if we are in the 5th row and col+1 or col-1 is same as
+                            // column flagged as a pawn just moved double
+                            if (row === start_row + 3*player_dir && this.enpassant_active){
+                                if(this.enpassant_col === col+player_dir){
+                                    valid_moves.push([row+player_dir, col+player_dir]);
+                                }
+                                else if(this.enpassant_col === col-player_dir){
+                                    valid_moves.push([row+player_dir, col-player_dir]);
+                                }
+
+                            }
+
 
                             return valid_moves;
 
@@ -361,7 +405,7 @@ document.addEventListener("drop", function (event) {
         if(event.target.className.includes("piece")){ // if we attack another piece
             dest_cell = event.target.parentElement;
         }
-        else {
+        else{
             dest_cell = event.target;
         }
 
@@ -371,6 +415,21 @@ document.addEventListener("drop", function (event) {
             dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
             // remove piece from origin
             ori_cell.innerHTML = "";
+
+            // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
+            let [dest_row, dest_col] = virtual_board.cell2cords(dest_cell);
+            if (dest_row === virtual_board.enpassant_row && dest_col === virtual_board.enpassant_col){
+                console.log("EN PASSANT TAKEN")
+                // en passant move taken, kill piece located at the row before destination
+                let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
+                let behind_cell = cell_at(dest_row - player_dir, dest_col);
+                behind_cell.innerHTML = "";
+                virtual_board.force_erase(dest_row - player_dir, dest_col)
+            }
+
+
+
+
             // update virtual board
             virtual_board.update(ori_cell, dest_cell);
             // unflag drag event

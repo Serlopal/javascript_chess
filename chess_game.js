@@ -27,11 +27,17 @@ function cell2cords (cell) {
 
 }
 
-function update_frontend(ori_cell, dest_cell){
-    // move piece to destination
-    dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
-    // remove piece from origin
-    ori_cell.innerHTML = "";
+function update_frontend(travels){
+    // apply each piece travel that has happened due to last move
+    for (let i=0; i<travels.length;i++){
+        let ori_cell = cell_at(...travels[i][0]);
+        let dest_cell = cell_at(...travels[i][1]);
+        // move piece to destination
+        dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
+        // remove piece from origin
+        ori_cell.innerHTML = "";
+    }
+
 }
 
 function on_drop(event){
@@ -50,7 +56,7 @@ function on_drop(event){
         if (driver.validate_move(cell2cords(dest_cell))){
 
             // update frontend
-            update_frontend(ori_cell, dest_cell);
+            update_frontend(driver.piece_travels);
 
             // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
             // let [dest_row, dest_col] = cell2cords(dest_cell);
@@ -468,7 +474,7 @@ class ChessDriver {
                 if(this.curr_valid_moves[i][0] === dest_coords[0] &&
                    this.curr_valid_moves[i][1] === dest_coords[1]){
                     // update board
-                    this.update(this.curr_ori_coords, dest_coords);
+                    this.piece_travels = this.update(this.curr_ori_coords, dest_coords);
                     // change turn
                     this.invert_turn();
                     // indicate move was successful
@@ -500,6 +506,8 @@ class ChessDriver {
             this.board[dest_coords[0]][dest_coords[1]] = this.piece_at(ori_coords[0], ori_coords[1], this.board);
             // remove piece from origin
             this.board[ori_coords[0]][ori_coords[1]] = null;
+
+            return [[ori_coords, dest_coords]]
         };
     }
 }
@@ -532,8 +540,6 @@ document.addEventListener("dragover", function(event) {event.preventDefault();})
 
 
 // register callback to invert board
-// function to reverse children of an element
-
 function reverse_board() {
     let pcs = document.querySelectorAll("[class^=\"col\"] > span");
     let brd = document.querySelector("#board");
@@ -556,16 +562,3 @@ function reverse_board() {
 }
 
 
-
-
-
-// function reverse_board(element){
-//     for (let i=1;i<element.childNodes.length;i++){
-//         // reverse each col in row
-//         for (let j=1;j<element.childNodes[i].childNodes.length;j++) {
-//             element.childNodes[i].insertBefore(element.childNodes[i].childNodes[j], element.childNodes[i].firstChild);
-//         }
-//         // now reverse row
-//         element.insertBefore(element.childNodes[i], element.firstChild);
-//     }
-// }

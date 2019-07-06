@@ -1,101 +1,154 @@
-// function to invert coords
-function invert_coord(coord) {
-    return Math.abs(coord - 7);
-}
 
-// function to get piece in given coordinates of board
-function piece_at(row, col) {
-    if (row > 7 || row < 0 || col > 7 || col < 0){
-        return null
+
+class ChessGame {
+    constructor(){
+        // create driver
+        this.driver = new ChessDriver();
+        // select all pieces
+        this.pieces = document.querySelectorAll("[class^=\"col\"] > span");
+        // initialise flag that signal a piece has been dragged to false
+        this.piece_dragged = false;
+        // initialise variable to store the cell where the piece to be moved lives to null
+        this.ori_cell = null;
+        // initialise variable to track rotation of the board and pieces
+        this.board_rotated = false;
+        // initialise variable to track available moves at each movement, so as to reset their styling after the move
+        this.available_moves = null;
+        // special reference to this game object to be referenced during event callbacks, since this will refer to the document in that cases
+        let self = this;
+
+        this.reverse_board = function() {
+            let pcs = document.querySelectorAll("[class^=\"col\"] > span");
+            let brd = document.querySelector("#board");
+
+            let deg = this.board_rotated? 0 : 180;
+
+            brd.style.mozTransform    = 'rotate('+deg+'deg)';
+            brd.style.msTransform     = 'rotate('+deg+'deg)';
+            brd.style.oTransform      = 'rotate('+deg+'deg)';
+            brd.style.transform       = 'rotate('+deg+'deg)';
+
+            for (let i=0; i < pcs.length; i++){
+                pcs[i].style.mozTransform    = 'rotate('+deg+'deg)';
+                pcs[i].style.msTransform     = 'rotate('+deg+'deg)';
+                pcs[i].style.oTransform      = 'rotate('+deg+'deg)';
+                pcs[i].style.transform       = 'rotate('+deg+'deg)';
+            }
+
+            this.board_rotated = !this.board_rotated;
+        };
+
+        this.on_drop = function(event){
+            event.preventDefault();
+            if (self.piece_dragged){
+                // get destination cell, both if it is empty or with a piece inside
+                let dest_cell = null;
+                if(event.target.className.includes("piece")){ // if we attack another piece
+                    dest_cell = event.target.parentElement;
+                }
+                else{
+                    dest_cell = event.target;
+                }
+
+                // now move if the movement is valid
+                if (self.driver.validate_move(self.cell2cords(dest_cell))){
+
+                    // update frontend
+                    self.update_frontend(self.driver.piece_travels);
+
+                    // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
+                    // let [dest_row, dest_col] = cell2cords(dest_cell);
+                    // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
+                    //     // en passant move taken, kill piece located at the row before destination
+                    //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
+                    //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
+                    //     behind_cell.innerHTML = "";
+                    //     virtual_board.force_erase(dest_row - player_dir, dest_col)
+                    // }
+                    // unflag drag event
+                    self.piece_dragged = false;
+                    // reverse board for the next player
+                    self.reverse_board(document.querySelector("#board"));
+                }
+
+                // remove highlighting of possible moves once this one has finished
+                for (let i=0;i<self.available_moves.length;i++){
+                    let [row, col] = self.available_moves[i];
+                    self.cell_at(row, col).style.backgroundColor = "";
+                }
+            }
+        };
+
+        this.on_drag = function(event){
+            // we must drag a piece and it must belong to the player to whom the turn belongs
+            if (event.target.className.includes("piece") && event.target.className.split(" ")[0] === self.driver.current_player) {
+                // compute available moves and highlight them
+                self.ori_cell = event.target.parentElement;
+                // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
+                self.available_moves = self.driver.get_valid_moves(self.cell2cords(self.ori_cell));
+                for (let i=0;i<self.available_moves.length;i++){
+                    let [row, col] = self.available_moves[i];
+                    self.cell_at(row, col).style.backgroundColor = "white";
+                }
+
+                // flag we have dragged a piece
+                self.piece_dragged = true;
+            }
+        };
+
+        this.cell_at = function(row, col){
+        return document.querySelector(".row_" + row + "> .col_" + col);
+    };
+
+        this.piece_at = function(row, col) {
+        if (row > 7 || row < 0 || col > 7 || col < 0){
+            return null
+        }
+        return document.querySelector(".row_" + row + "> .col_" + col).firstChild;
     }
-    return document.querySelector(".row_" + row + "> .col_" + col).firstChild;
-}
 
-// function to get piece in given coordinates of board
-function cell_at(row, col) {
-    return document.querySelector(".row_" + row + "> .col_" + col);
-}
+        this.cell2cords = function (cell) {
+            // extract coordinates and piece of moving piece
+            let row = Number(cell.parentElement.className.split("_")[1]);
+            let col = Number(cell.className.split("_")[1]);
 
-function cell2cords (cell) {
-    // extract coordinates and piece of moving piece
-    let row = Number(cell.parentElement.className.split("_")[1]);
-    let col = Number(cell.className.split("_")[1]);
+            return [row, col];
+        }
 
-    let coords = [row, col];
+        this.update_frontend = function(travels){
+        // apply each piece travel that has happened due to last move
+        for (let i=0; i<travels.length;i++){
+            let ori_cell = this.cell_at(...travels[i][0]);
+            let dest_cell = this.cell_at(...travels[i][1]);
+            // move piece to destination
+            dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
+            // remove piece from origin
+            ori_cell.innerHTML = "";
+        }
 
-    return coords;
-
-}
-
-function update_frontend(travels){
-    // apply each piece travel that has happened due to last move
-    for (let i=0; i<travels.length;i++){
-        let ori_cell = cell_at(...travels[i][0]);
-        let dest_cell = cell_at(...travels[i][1]);
-        // move piece to destination
-        dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
-        // remove piece from origin
-        ori_cell.innerHTML = "";
     }
 
-}
 
-function on_drop(event){
-    event.preventDefault();
-    if (piece_dragged){
-        // get destination cell, both if it is empty or with a piece inside
-        let dest_cell = null;
-        if(event.target.className.includes("piece")){ // if we attack another piece
-            dest_cell = event.target.parentElement;
-        }
-        else{
-            dest_cell = event.target;
-        }
-
-        // now move if the movement is valid
-        if (driver.validate_move(cell2cords(dest_cell))){
-
-            // update frontend
-            update_frontend(driver.piece_travels);
-
-            // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
-            // let [dest_row, dest_col] = cell2cords(dest_cell);
-            // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
-            //     // en passant move taken, kill piece located at the row before destination
-            //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
-            //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
-            //     behind_cell.innerHTML = "";
-            //     virtual_board.force_erase(dest_row - player_dir, dest_col)
-            // }
-            // unflag drag event
-            piece_dragged = false;
-            // reverse board for the next player
-            reverse_board(document.querySelector("#board"));
-        }
-
-        // remove highlighting of possible moves once this one has finished
-        for (let i=0;i<available_moves.length;i++){
-            let [row, col] = available_moves[i];
-            cell_at(row, col).style.backgroundColor = "";
-        }
+        this.setup_interaction_callbacks = function (){
+            // make pieces draggable
+            for (let i=0; i < this.pieces.length; i++){
+                // makes pieces draggable
+                this.pieces[i].setAttribute("draggable", true);
+            }
+            // register callback for drag start
+            document.addEventListener("dragstart", this.on_drag);
+            // register callback for drop
+            document.addEventListener("drop", this.on_drop);
+            // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
+            document.addEventListener("dragover", function(event) {event.preventDefault();});
+        };
+        this.setup_interaction_callbacks()
+        
     }
-}
 
-function on_drag(event){
-    // we must drag a piece and it must belong to the player to whom the turn belongs
-    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===driver.current_player) {
-        // compute available moves and highlight them
-        ori_cell = event.target.parentElement;
-        // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
-        available_moves = driver.get_valid_moves(cell2cords(ori_cell));
-        for (let i=0;i<available_moves.length;i++){
-            let [row, col] = available_moves[i];
-            cell_at(row, col).style.backgroundColor = "white";
-        }
 
-        // flag we have dragged a piece
-        piece_dragged = true;
-    }
+
+
 }
 
 class ChessDriver {
@@ -512,53 +565,7 @@ class ChessDriver {
     }
 }
 
-// create driver
-let driver = new ChessDriver();
-// select all pieces
-let pieces = document.querySelectorAll("[class^=\"col\"] > span");
-// initialise flag that signal a piece has been dragged to false
-let piece_dragged = false;
-// initialise variable to store the cell where the piece to be moved lives to null
-let ori_cell = null;
-// initialise variable to track rotation of the board and pieces
-let board_rotated = false;
-// initialise variable to track available moves at each movement, so as to reset their styling after the move
-let available_moves = null;
 
-// make pieces draggable
-for (let i=0; i < pieces.length; i++){
-    // makes pieces draggable
-    pieces[i].setAttribute("draggable", true);
-}
-// register callback for drag start
-document.addEventListener("dragstart", on_drag);
-// register callback for drop
-document.addEventListener("drop", on_drop);
-// By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
-document.addEventListener("dragover", function(event) {event.preventDefault();});
-
-
-
-// register callback to invert board
-function reverse_board() {
-    let pcs = document.querySelectorAll("[class^=\"col\"] > span");
-    let brd = document.querySelector("#board");
-
-    let deg = board_rotated? 0 : 180;
-
-    brd.style.mozTransform    = 'rotate('+deg+'deg)';
-    brd.style.msTransform     = 'rotate('+deg+'deg)';
-    brd.style.oTransform      = 'rotate('+deg+'deg)';
-    brd.style.transform       = 'rotate('+deg+'deg)';
-
-    for (let i=0; i < pcs.length; i++){
-        pcs[i].style.mozTransform    = 'rotate('+deg+'deg)';
-        pcs[i].style.msTransform     = 'rotate('+deg+'deg)';
-        pcs[i].style.oTransform      = 'rotate('+deg+'deg)';
-        pcs[i].style.transform       = 'rotate('+deg+'deg)';
-    }
-
-    board_rotated = !board_rotated;
-}
+let game = new ChessGame();
 
 

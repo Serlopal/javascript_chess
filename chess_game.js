@@ -1,4 +1,3 @@
-
 // function to invert coords
 function invert_coord(coord) {
     return Math.abs(coord - 7);
@@ -28,6 +27,70 @@ function cell2cords (cell) {
 
 }
 
+function update_frontend(ori_cell, dest_cell){
+    // move piece to destination
+    dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
+    // remove piece from origin
+    ori_cell.innerHTML = "";
+}
+
+function on_drop(event){
+    event.preventDefault();
+    if (piece_dragged){
+        // get destination cell, both if it is empty or with a piece inside
+        let dest_cell = null;
+        if(event.target.className.includes("piece")){ // if we attack another piece
+            dest_cell = event.target.parentElement;
+        }
+        else{
+            dest_cell = event.target;
+        }
+
+        // now move if the movement is valid
+        if (driver.validate_move(cell2cords(dest_cell))){
+
+            // update frontend
+            update_frontend(ori_cell, dest_cell);
+
+            // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
+            // let [dest_row, dest_col] = cell2cords(dest_cell);
+            // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
+            //     // en passant move taken, kill piece located at the row before destination
+            //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
+            //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
+            //     behind_cell.innerHTML = "";
+            //     virtual_board.force_erase(dest_row - player_dir, dest_col)
+            // }
+            // unflag drag event
+            piece_dragged = false;
+            // reverse board for the next player
+            reverse_board(document.querySelector("#board"));
+        }
+
+        // remove highlighting of possible moves once this one has finished
+        for (let i=0;i<available_moves.length;i++){
+            let [row, col] = available_moves[i];
+            cell_at(row, col).style.backgroundColor = "";
+        }
+    }
+}
+
+function on_drag(event){
+    // we must drag a piece and it must belong to the player to whom the turn belongs
+    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===driver.current_player) {
+        // compute available moves and highlight them
+        ori_cell = event.target.parentElement;
+        // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
+        available_moves = driver.get_valid_moves(cell2cords(ori_cell));
+        for (let i=0;i<available_moves.length;i++){
+            let [row, col] = available_moves[i];
+            cell_at(row, col).style.backgroundColor = "white";
+        }
+
+        // flag we have dragged a piece
+        piece_dragged = true;
+    }
+}
 
 class ChessDriver {
     constructor() {
@@ -90,8 +153,8 @@ class ChessDriver {
                         // can move forward if it is empty
                         if (!this.piece_at(row + this.dir, col, board)) {
                             valid_moves.push([row + this.dir, col]);
-                            // can move double if we are in the start row
-                            if (row === this.start_row){
+                            // can move double if we are in the start row and there is no one in the dest
+                            if (row === this.start_row && !this.piece_at(row + 2*this.dir, col, board)){
                                 valid_moves.push([row+this.dir*2, col]);
                             }
                         }
@@ -441,7 +504,6 @@ class ChessDriver {
     }
 }
 
-
 // create driver
 let driver = new ChessDriver();
 // select all pieces
@@ -461,70 +523,11 @@ for (let i=0; i < pieces.length; i++){
     pieces[i].setAttribute("draggable", true);
 }
 // register callback for drag start
-document.addEventListener("dragstart", function (event) {
-    // we must drag a piece and it must belong to the player to whom the turn belongs
-    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===driver.current_player) {
-        // compute available moves and highlight them
-        ori_cell = event.target.parentElement;
-        // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
-        available_moves = driver.get_valid_moves(cell2cords(ori_cell));
-        for (let i=0;i<available_moves.length;i++){
-            let [row, col] = available_moves[i];
-            cell_at(row, col).style.backgroundColor = "white";
-        }
-
-        // flag we have dragged a piece
-        piece_dragged = true;
-    }
-});
-
+document.addEventListener("dragstart", on_drag);
 // register callback for drop
-document.addEventListener("drop", function (event) {
-    event.preventDefault();
-    if (piece_dragged){
-        // get destination cell, both if it is empty or with a piece inside
-        let dest_cell = null;
-        if(event.target.className.includes("piece")){ // if we attack another piece
-            dest_cell = event.target.parentElement;
-        }
-        else{
-            dest_cell = event.target;
-        }
-
-        // now move if the movement is valid
-        if (driver.validate_move(cell2cords(dest_cell))){
-            // move piece to destination
-            dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
-            // remove piece from origin
-            ori_cell.innerHTML = "";
-
-            // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
-            // let [dest_row, dest_col] = cell2cords(dest_cell);
-            // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
-            //     // en passant move taken, kill piece located at the row before destination
-            //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
-            //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
-            //     behind_cell.innerHTML = "";
-            //     virtual_board.force_erase(dest_row - player_dir, dest_col)
-            // }
-            // unflag drag event
-            piece_dragged = false;
-            // reverse board for the next player
-            reverse_board(document.querySelector("#board"));
-        }
-
-        // remove highlighting of possible moves once this one has finished
-        for (let i=0;i<available_moves.length;i++){
-            let [row, col] = available_moves[i];
-            cell_at(row, col).style.backgroundColor = "";
-        }
-    }
-});
-
+document.addEventListener("drop", on_drop);
 // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
-document.addEventListener("dragover", function(event) {
-  event.preventDefault();
-});
+document.addEventListener("dragover", function(event) {event.preventDefault();});
 
 
 

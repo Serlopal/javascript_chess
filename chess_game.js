@@ -30,79 +30,49 @@ function cell2cords (cell) {
 
 
 class ChessDriver {
-
     constructor() {
-        this.pieces = function () {
-            class ChessPiece {
+
+        class ChessPiece {
                 constructor(player) {
                     this.player = player;
                     this.hasMoved = false;
+
                     this.piece_at = function (row, col, board) {
                         return board[row][col];
                     };
-                }
 
+                    this.invalid_coords = function (row, col){
+                        return row < 0 || row > 7 || col < 0 || col > 7
+                    };
 
-                static invalid_coords(row, col){
-                    return row < 0 || row > 7 || col < 0 || col > 7
-                }
+                    this.radial_generator = function (coords, board, dirs) {
+                        let [row, col] = coords;
+                        let valid_moves = [];
 
-                static radial_generator (coords, board, dirs) {
-                    let [row, col] = coords;
-                    let valid_moves = [];
-
-                    for(let i=0;i<dirs.length;i++){
-                        for (let j=1;j<8;j++){
-                            let mov = [row+dirs[i][0]*j, col+dirs[i][1]*j];
-                            if(this.invalid_coords(mov[0], mov[1])){
-                                break;
-                            }
-                            if(this.piece_at(mov[0], mov[1], board)){
-                                if(this.piece2player(this.piece_at(mov[0], mov[1], board)) !== this.current_player){
-                                    valid_moves.push([mov[0], mov[1]]);
+                        for(let i=0;i<dirs.length;i++){
+                            for (let j=1;j<8;j++){
+                                let mov = [row+dirs[i][0]*j, col+dirs[i][1]*j];
+                                if(this.invalid_coords(mov[0], mov[1])){
+                                    break;
                                 }
-                                break;
-                            }
-                            valid_moves.push([mov[0], mov[1]]);
+                                if(this.piece_at(mov[0], mov[1], board)){
+                                    if(this.piece_at(mov[0], mov[1], board).player !== this.current_player){
+                                        valid_moves.push([mov[0], mov[1]]);
+                                    }
+                                    break;
+                                }
+                                valid_moves.push([mov[0], mov[1]]);
 
+                            }
                         }
-                    }
-                    return valid_moves;
+                        return valid_moves;
+                    };
                 }
-
-                static general_move_filter = function (potential_moves, board) {
-                    let valid_moves = [];
-                    for (let i=0; i < potential_moves.length; i++){
-                        // check movement is inside board
-                        if (this.coords_outof_board(potential_moves[i][0], potential_moves[i][1])){
-                                continue;
-                            }
-                        // check movement is not to a cell occupied by a piece of the same player
-                        let recv_piece = this.piece_at(potential_moves[i][0], potential_moves[i][1], board);
-                        if (recv_piece){
-                            if (this.piece2player(recv_piece) === this.current_player){
-                                continue;
-                            }
-                        }
-
-                        valid_moves.push(potential_moves[i]);
-                    }
-                    return valid_moves;
-                };
-
-                static get_valid_moves = function(ori_coords, board){
-                    // returns the list of legal moves for the piece at coordinates ori_coords
-
-                    // get piece in the selected coordinates
-                    let piece = this.piece_at(...ori_coords, board);
-
-                    // ask piece for valid moves
-                    return piece.get_valid_moves(ori_coords, board);
-
-                };
             }
 
-            class Pawn extends ChessPiece {
+        this.pieces = {
+
+            Pawn:   class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "pawn";
@@ -128,10 +98,10 @@ class ChessDriver {
                         // can move diagonally forward-right if it is to attack an enemy
                         let piece2theright = this.piece_at(row+this.dir, col+this.dir, board);
                         let piece2theleft = this.piece_at(row+this.dir, col-this.dir, board);
-                        if (piece2theright && this.piece2player(piece2theright) !== this.current_player){
+                        if (piece2theright && piece2theright.player !== this.current_player){
                             valid_moves.push([row+this.dir, col+this.dir]);
                         }
-                        if (piece2theleft && this.piece2player(piece2theleft) !== this.current_player){
+                        if (piece2theleft && piece2theleft.player !== this.current_player){
                             valid_moves.push([row+this.dir, col-this.dir]);
                         }
 
@@ -149,9 +119,9 @@ class ChessDriver {
                         return valid_moves;
                     }
                 }
-            }
+            },
 
-            class Rook extends ChessPiece {
+            Rook:   class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "rook";
@@ -164,9 +134,9 @@ class ChessDriver {
                     }
 
                 }
-            }
+            },
 
-            class Knight extends ChessPiece {
+            Knight: class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "knight";
@@ -187,16 +157,16 @@ class ChessDriver {
                                                [row - 2, col-1]];
                         // remove moves that fall out of the board
                         for (let i=0; i<potential_moves.length;i++){
-                            if (! ChessPiece.invalid_coords(...potential_moves[i])) {
+                            if (! this.invalid_coords(...potential_moves[i])) {
                                 valid_moves.push(potential_moves[i]);
                             }
                         }
                         return valid_moves
                     }
                 }
-            }
+            },
 
-            class Bishop extends ChessPiece {
+            Bishop: class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "bishop";
@@ -208,9 +178,9 @@ class ChessDriver {
                         return this.radial_generator(coords, board, dirs)
                     }
                 }
-            }
+            },
 
-            class Queen  extends ChessPiece {
+            Queen:  class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "queen";
@@ -225,9 +195,9 @@ class ChessDriver {
                         return this.radial_generator(coords, board, dirs)
                     }
                 }
-            }
+            },
 
-            class King extends ChessPiece {
+            King:   class extends ChessPiece {
                 constructor(player) {
                     super(player);
                     this.type = "king";
@@ -247,7 +217,7 @@ class ChessDriver {
                                                 [row + 1, col-1]];
                         // remove moves that fall out of the board
                         for (let i=0; i<potential_moves.length;i++){
-                            if (! ChessPiece.invalid_coords(...potential_moves[i])) {
+                            if (! this.invalid_coords(...potential_moves[i])) {
                                 valid_moves.push(potential_moves[i]);
                             }
                         }
@@ -255,9 +225,8 @@ class ChessDriver {
                     }
 
                 }
-            }
+            },
         };
-
         this.curr_valid_moves = null;
         this.current_player = "white";
 
@@ -275,7 +244,7 @@ class ChessDriver {
 
         this.move_piece = function (ori, dest) {
             // attempt to move a piece from origin (ori) to destination (dest). returns true if successful false if not
-            let valid_moves = this.get_valid_moves(ori, this.clone_board(), false);
+            let valid_moves = this.get_valid_moves(ori, this.clone_board(this.board), false);
             // destination coords must be included in list of valid moves
             for (let i=0;i<this.curr_valid_moves.length;i++){
                 if(valid_moves[i][0] === dest[0] &&
@@ -288,7 +257,7 @@ class ChessDriver {
 
         this.get_valid_moves = function (ori_coords) {
             this.curr_ori_coords = ori_coords;
-            this.curr_valid_moves = this._get_valid_moves(ori_coords, this.clone_board(), false)
+            this.curr_valid_moves = this._get_valid_moves(ori_coords, this.clone_board(this.board), false);
             return this.curr_valid_moves
         };
 
@@ -300,10 +269,10 @@ class ChessDriver {
             }
 
             // fill valid moves using board, player, piece and ori_coords
-            let valid_moves = this.pieces.ChessPiece.get_valid_moves(ori_coords, this.clone_board());
+            let valid_moves = this.piece_at(...ori_coords).get_valid_moves(ori_coords, board);
 
             // filter valid moves using the general generator, that discards moves using general rules
-            // valid_moves = this.general_move_filter(valid_moves, board);
+            valid_moves = this.general_move_filter(valid_moves, board);
 
 
             if (isfuture){
@@ -311,7 +280,7 @@ class ChessDriver {
             }
             else{
                 // filter valid moves using the exposed_king filter
-                valid_moves = this.exposed_king_filter(ori_coords, this.clone_board(), valid_moves);
+                valid_moves = this.exposed_king_filter(ori_coords, this.clone_board(board), valid_moves);
                 //store current valid moves
                 this.curr_valid_moves = valid_moves;
             }
@@ -321,7 +290,30 @@ class ChessDriver {
 
         };
 
+        this.general_move_filter = function (potential_moves, board) {
+                        let p = new ChessPiece();
+
+                        let valid_moves = [];
+                        for (let i=0; i < potential_moves.length; i++){
+                            // check movement is inside board
+                            if (p.invalid_coords(potential_moves[i][0], potential_moves[i][1])){
+                                    continue;
+                                }
+                            // check movement is not to a cell occupied by a piece of the same player
+                            let recv_piece = p.piece_at(...potential_moves[i], board);
+                            if (recv_piece){
+                                if (recv_piece.player === this.current_player){
+                                    continue;
+                                }
+                            }
+
+                            valid_moves.push(potential_moves[i]);
+                        }
+                        return valid_moves;
+                    };
+
         this.exposed_king_filter = function (ori_coords, board, potential_moves){
+
             let valid_moves = [];
             // after checking move is correct, check king cannot be attacked by any enemy piece
             // for each of these available moves. Remove move from list if any enemy piece threatens
@@ -332,18 +324,17 @@ class ChessDriver {
                 // flag to indicate the movement has been identified as invalid
                 let is_invalid = false;
                 // build the board that movement would end up in
-                let after_board = this.apply_move(board, ori_coords, potential_moves[i]);
+                let after_board = this.apply_move(this.clone_board(board), ori_coords, potential_moves[i]);
                 // find coords of player's king
                 let king_coords = null;
                 for(let x=0;x<8;x++) {
                     for(let y=0;y<8;y++) {
                         let p = this.piece_at(x, y, after_board);
-                        if(p.type === "king" && p.player === this.current_player){
+                        if(p && p.type === "king" && p.player === this.current_player){
                             king_coords = [x,y];
                         }
                     }
                 }
-
 
                 // for each piece of the opposite player
                 for_each_enemy:
@@ -352,9 +343,9 @@ class ChessDriver {
                             if(!this.piece_at(x, y, after_board)){continue;}
                             if(this.piece_at(x, y, after_board).player !== this.current_player){
                                 // get valid movements for this piece in this possible future board
-                                let after_valid_moves = this._get_valid_moves([x,y], board, true);
+                                let after_valid_moves = this._get_valid_moves([x,y], after_board, true);
                                 // the move is illegal if this piece can move to the kings position next
-                                for(let q=0;q<after_valid_moves.length;q++) {
+                                for(let q=0;q<after_valid_moves.length;q++){
                                     if (after_valid_moves[q][0] === king_coords[0] &&
                                         after_valid_moves[q][1] === king_coords[1]){
                                         is_invalid = true;
@@ -364,6 +355,7 @@ class ChessDriver {
                             }
                         }
                     }
+
                 if (!is_invalid){
                     valid_moves.push(potential_moves[i])
                 }
@@ -371,11 +363,11 @@ class ChessDriver {
             return valid_moves;
         };
 
-        this.clone_board = function (){
+        this.clone_board = function (board){
             // returns a copy by value of the current state board
             let new_board = [];
-            for (let i = 0; i < this.board.length; i++)
-                new_board[i] = this.board[i].slice();
+            for (let i = 0; i < board.length; i++)
+                new_board[i] = board[i].slice();
             return new_board;
         };
 
@@ -403,7 +395,7 @@ class ChessDriver {
         this.apply_move = function (board, ori, dest){
             // applies move to current board, normally move the piece to the destination, with exceptions (castling, etc)
             board[dest[0]][dest[1]] = board[ori[0]][ori[1]];
-            board[ori[0]][ori[1]] = "";
+            board[ori[0]][ori[1]] = null;
             return board;
         };
 
@@ -426,26 +418,25 @@ class ChessDriver {
         this.update = function (ori_coords, dest_coords) {
             // SPECIAL MOVES
             // check this is pawn double move and activate EN PASSANT flag
-            let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
-            if (this.piece_at(...ori_coords, this.board).type === "pawn" &&
-                ori_coords[0] === start_row && Math.abs(dest_coords[0] - ori_coords[0]) === 2) {
-                console.log("EN PASSANT ACTIVATED");
-                this.enpassant_active = true;
-                this.enpassant_row = dest_coords[0] - player_dir;
-                this.enpassant_col = dest_coords[1];
-
-            }
-            // deactivate enpassant after
-            else{
-                this.enpassant_active = false;
-                this.enpassant_row = null;
-                this.enpassant_col = null;
-            }
+            // let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
+            // if (this.piece_at(...ori_coords, this.board).type === "pawn" &&
+            //     ori_coords[0] === start_row && Math.abs(dest_coords[0] - ori_coords[0]) === 2) {
+            //     this.enpassant_active = true;
+            //     this.enpassant_row = dest_coords[0] - player_dir;
+            //     this.enpassant_col = dest_coords[1];
+            //
+            // }
+            // // deactivate enpassant after
+            // else{
+            //     this.enpassant_active = false;
+            //     this.enpassant_row = null;
+            //     this.enpassant_col = null;
+            // }
 
             // move piece to destination
             this.board[dest_coords[0]][dest_coords[1]] = this.piece_at(ori_coords[0], ori_coords[1], this.board);
             // remove piece from origin
-            this.board[ori_coords[0]][ori_coords[1]] = "";
+            this.board[ori_coords[0]][ori_coords[1]] = null;
         };
     }
 }
@@ -472,7 +463,7 @@ for (let i=0; i < pieces.length; i++){
 // register callback for drag start
 document.addEventListener("dragstart", function (event) {
     // we must drag a piece and it must belong to the player to whom the turn belongs
-    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===virtual_board.current_player) {
+    if (event.target.className.includes("piece") && event.target.className.split(" ")[0]===driver.current_player) {
         // compute available moves and highlight them
         ori_cell = event.target.parentElement;
         // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
@@ -508,14 +499,14 @@ document.addEventListener("drop", function (event) {
             ori_cell.innerHTML = "";
 
             // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
-            let [dest_row, dest_col] = cell2cords(dest_cell);
-            if (dest_row === virtual_board.enpassant_row && dest_col === virtual_board.enpassant_col){
-                // en passant move taken, kill piece located at the row before destination
-                let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
-                let behind_cell = cell_at(dest_row - player_dir, dest_col);
-                behind_cell.innerHTML = "";
-                virtual_board.force_erase(dest_row - player_dir, dest_col)
-            }
+            // let [dest_row, dest_col] = cell2cords(dest_cell);
+            // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
+            //     // en passant move taken, kill piece located at the row before destination
+            //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
+            //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
+            //     behind_cell.innerHTML = "";
+            //     virtual_board.force_erase(dest_row - player_dir, dest_col)
+            // }
             // unflag drag event
             piece_dragged = false;
             // reverse board for the next player

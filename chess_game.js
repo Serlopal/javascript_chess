@@ -53,8 +53,8 @@ class ChessGame {
                 // now move if the movement is valid
                 if (self.driver.validate_move(self.cell2cords(dest_cell))){
 
-                    // update_board frontend
-                    self.update_frontend(self.driver.piece_travels);
+                    // apply_move2board frontend
+                    self.update_frontend(self.driver.board);
 
                     // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
                     // let [dest_row, dest_col] = cell2cords(dest_cell);
@@ -115,27 +115,45 @@ class ChessGame {
             return [row, col];
         };
 
-        this.update_frontend = function(travels){
-        // apply each piece travel that has happened due to last move
-        for (let i=0; i<travels.length;i++){
-            let ori_cell = this.cell_at(...travels[i][0]);
-            let dest_cell = this.cell_at(...travels[i][1]);
-            // move piece to destination
-            dest_cell.innerHTML = ori_cell.querySelector("span").outerHTML;
-            // remove piece from origin
-            ori_cell.innerHTML = "";
-        }
+        this.update_frontend = function(board){
 
-    };
+            let piece2char = {"pawn": "&#9817",
+                              "rook": "&#9820",
+                              "knight": "&#9822",
+                              "bishop": "&#9821",
+                              "queen": "&#9819",
+                              "king": "&#9818",
+            };
+
+            for(let x=0;x<8;x++) {
+                for(let y=0;y<8;y++) {
+                    let c = this.cell_at(x, y);
+                    let p = board[x][y];
+
+                    if(p){
+                        c.innerHTML = `<span class="${p.player} ${p.type} piece">${piece2char[p.type]}</span>`
+                    }
+                    else{
+                        c.innerHTML = "";
+                    }
+                }
+            }
 
 
-        this.setup_interaction_callbacks = function (){
+            this.setup_interaction_callbacks()
+        };
+
+        this.setup_interaction_callbacks = function ()  {
+            // fetch pieces again
+            this.pieces = document.querySelectorAll("[class^=\"col\"] > span");
+
             // make pieces draggable
             for (let i=0; i < this.pieces.length; i++){
                 // makes pieces draggable
                 this.pieces[i].setAttribute("draggable", true);
             }
             // register callback for drag start
+            // TODO change this to add listeners on pieces for drag and cell/pieces for drop
             document.addEventListener("dragstart", this.on_drag);
             // register callback for drop
             document.addEventListener("drop", this.on_drop);
@@ -458,9 +476,7 @@ class ChessDriver {
                 // flag to indicate the movement has been identified as invalid
                 let is_invalid = false;
                 // build the board that movement would end up in
-                let after_board = null;
-                let _ = null;
-                [after_board, _] = this.update_board(this.clone_board(board), ori_coords, potential_moves[i]);
+                let after_board = this.apply_move2board(this.clone_board(board), ori_coords, potential_moves[i]);
                 // find coords of player's king
                 let king_coords = null;
                 for(let x=0;x<8;x++) {
@@ -536,8 +552,8 @@ class ChessDriver {
 
                     this.move_counter++;
 
-                    // update_board board
-                    [this.board, this.piece_travels] = this.update_board(this.clone_board(this.board), this.curr_ori_coords, dest_coords);
+                    // apply_move2board board
+                    this.board = this.apply_move2board(this.clone_board(this.board), this.curr_ori_coords, dest_coords);
                     // change turn
                     this.invert_turn();
                     // indicate move was successful
@@ -547,33 +563,32 @@ class ChessDriver {
             return false;
         };
 
-        this.update_board = function (board, ori_coords, dest_coords) {
+        this.apply_move2board = function (board, ori_coords, dest_coords) {
             // SPECIAL MOVES
             // check this is pawn double move and activate EN PASSANT flag
             let op = this.piece_at(...ori_coords, board);
             let dp = this.piece_at(...dest_coords, board);
-            let sequence = [];
 
             // en passant
             if (op.type === "pawn" && ori_coords[1] !== dest_coords[1] && !dp ) {
                 let enpassant_coords = [dest_coords[0] - op.dir, dest_coords[1]];
                 // kill en passant victim
                 board[enpassant_coords[0]][enpassant_coords[1]] = null;
-                // record sequence of movements to go through en passant victim to kill it
-                sequence = [[ori_coords, enpassant_coords], [enpassant_coords, dest_coords]];
 
             }
+            // pawn to queen transformation
+            else if(op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*6){
+                op = new this.pieces.Queen(op.player)
+            }
+
             // standard moves
-            else{
-                // move piece to destination
-                board[dest_coords[0]][dest_coords[1]] = op;
-                // remove piece from origin
-                board[ori_coords[0]][ori_coords[1]] = null;
-                sequence = [[ori_coords, dest_coords]];
-            }
+            // move piece to destination
+            board[dest_coords[0]][dest_coords[1]] = op;
+            // remove piece from origin
+            board[ori_coords[0]][ori_coords[1]] = null;
 
 
-            return [board, sequence]
+            return board
         };
     }
 }

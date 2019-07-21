@@ -53,7 +53,7 @@ class ChessGame {
                 // now move if the movement is valid
                 if (self.driver.validate_move(self.cell2cords(dest_cell))){
 
-                    // apply_move2board frontend
+                    // update frontend
                     self.update_frontend(self.driver.board);
 
                     // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
@@ -268,7 +268,7 @@ class ChessDriver {
                     super(player);
                     this.type = "rook";
                     this.dir = player === "white" ? 1:-1;
-                    this.start_row = player === "white" ? 1:6;
+                    this.start_row = player === "white" ? 0:7;
 
                     this.get_valid_moves = function(coords, board) {
                         let dirs = [[this.dir, 0], [0, this.dir], [-this.dir, 0], [0, -this.dir]];
@@ -283,7 +283,7 @@ class ChessDriver {
                     super(player);
                     this.type = "knight";
                     this.dir = player === "white" ? 1:-1;
-                    this.start_row = player === "white" ? 1:6;
+                    this.start_row = player === "white" ? 0:7;
 
                     this.get_valid_moves = function (coords, board) {
                         let [row, col] = coords;
@@ -313,7 +313,7 @@ class ChessDriver {
                     super(player);
                     this.type = "bishop";
                     this.dir = player === "white" ? 1:-1;
-                    this.start_row = player === "white" ? 1:6;
+                    this.start_row = player === "white" ? 0:7;
 
                     this.get_valid_moves = function (coords, board) {
                         let dirs = [[this.dir, this.dir], [this.dir, -this.dir], [-this.dir, -this.dir], [-this.dir, this.dir]];
@@ -327,7 +327,7 @@ class ChessDriver {
                     super(player);
                     this.type = "queen";
                     this.dir = player === "white" ? 1:-1;
-                    this.start_row = player === "white" ? 1:6;
+                    this.start_row = player === "white" ? 0:7;
 
                     this.get_valid_moves = function (coords, board) {
                         let dirs = [[this.dir, 0], [0, this.dir], [-this.dir, 0], [0, -this.dir],
@@ -344,8 +344,8 @@ class ChessDriver {
                     super(player);
                     this.type = "king";
                     this.dir = player === "white" ? 1:-1;
-                    this.start_row = player === "white" ? 1:6;
-                    this.get_valid_moves = function(coords, board) {
+                    this.start_row = player === "white" ? 0:7;
+                    this.get_valid_moves = function(coords, board, driver, isfuture=false) {
                         let [row, col] = coords;
                         let [player_dir, start_row] = this.current_player === "white"? [1, 1]:[-1,6];
                         let valid_moves = [];
@@ -363,6 +363,48 @@ class ChessDriver {
                                 valid_moves.push(potential_moves[i]);
                             }
                         }
+
+
+                        // castling. Only computed when we are not in the future to avoid recursive loop
+                        // this means we dont check if a castling move can kill the enemy king through his own castling
+                        // which will never happen
+                        if (!isfuture) {
+                            let king = this.piece_at(...coords, board);
+                            // if the king has not moved yet
+                            if (!king.hasMoved) {
+                                // and if the rook exists and has not moved yet
+                                let lrook = this.piece_at(row, 0, board);
+                                if (lrook && lrook.type === "rook" && !lrook.hasMoved) {
+                                    // and if for the origin cell the king is not threaten (in check)
+                                    let ori_condition = driver.exposed_king_filter(coords, board, [coords]).length > 0;
+                                    // and for the in-between cell this is empty and the king would not be threaten in it
+                                    let betw_condition = !this.piece_at(row, col - 1, board) && driver.exposed_king_filter(coords, board, [[row, col - 1]]).length > 0;
+                                    // and for the destination cell this is empty and the king would not be threaten in it
+                                    let dest_condition = !this.piece_at(row, col - 2, board) && driver.exposed_king_filter(coords, board, [[row, col - 2]]).length > 0;
+
+                                    // if the path is clear, add move to available ones
+                                    if (ori_condition && betw_condition && dest_condition) {
+                                        valid_moves.push([row, col - 2])
+                                    }
+                                }
+                                // and the rook exists and has not moved yet
+                                let rrook = this.piece_at(row, 7, board);
+                                if (rrook && rrook.type === "rook" && !rrook.hasMoved) {
+                                    // and if for the origin cell the king is not threaten (in check)
+                                    let ori_condition = driver.exposed_king_filter(coords, board, [coords]).length > 0;
+                                    // and for the in-between cell this is empty and the king would not be threaten in it
+                                    let betw_condition = !this.piece_at(row, col + 1, board) && driver.exposed_king_filter(coords, board, [[row, col + 1]]).length > 0;
+                                    // and for the destination cell this is empty and the king would not be threaten in it
+                                    let dest_condition = !this.piece_at(row, col + 2, board) && driver.exposed_king_filter(coords, board, [[row, col + 2]]).length > 0;
+
+                                    // if the path is clear, add move to availables ones
+                                    if (ori_condition && betw_condition && dest_condition) {
+                                        valid_moves.push([row, col + 2])
+                                    }
+                                }
+                            }
+                        }
+
                         return valid_moves
                     }
 
@@ -412,12 +454,16 @@ class ChessDriver {
             }
 
             // fill valid moves using board, player, piece and ori_coords
-            let p = this.piece_at(...ori_coords);
+            let p = this.piece_at(...ori_coords, board);
             let valid_moves = null;
 
             if (p.type === "pawn"){
                 // pawns need to know the number of turns to deactivate en passant vulnerabilities
                 valid_moves = p.get_valid_moves(ori_coords, board, this.move_counter);
+            }
+            else if (p.type === "king"){
+                // king needs the exposed king filter to validate castling moves
+                valid_moves = p.get_valid_moves(ori_coords, board, this, isfuture);
             }
             else{
                 valid_moves = p.get_valid_moves(ori_coords, board);
@@ -430,9 +476,11 @@ class ChessDriver {
             if (isfuture){
                 this.invert_turn()
             }
-            else{
+            else {
                 // filter valid moves using the exposed_king filter
-                valid_moves = this.exposed_king_filter(ori_coords, this.clone_board(board), valid_moves);
+                if (valid_moves.length) {
+                    valid_moves = this.exposed_king_filter(ori_coords, this.clone_board(board), valid_moves);
+                }
                 //store current valid moves
                 this.curr_valid_moves = valid_moves;
             }
@@ -465,7 +513,6 @@ class ChessDriver {
                     };
 
         this.exposed_king_filter = function (ori_coords, board, potential_moves){
-
             let valid_moves = [];
             // after checking move is correct, check king cannot be attacked by any enemy piece
             // for each of these available moves. Remove move from list if any enemy piece threatens
@@ -552,8 +599,8 @@ class ChessDriver {
 
                     this.move_counter++;
 
-                    // apply_move2board board
                     this.board = this.apply_move2board(this.clone_board(this.board), this.curr_ori_coords, dest_coords);
+                    console.log(this.board)
                     // change turn
                     this.invert_turn();
                     // indicate move was successful
@@ -565,9 +612,14 @@ class ChessDriver {
 
         this.apply_move2board = function (board, ori_coords, dest_coords) {
             // SPECIAL MOVES
-            // check this is pawn double move and activate EN PASSANT flag
             let op = this.piece_at(...ori_coords, board);
             let dp = this.piece_at(...dest_coords, board);
+
+
+            // promotion
+            if (op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*7){
+                op = new this.pieces.Queen(op.player)
+            }
 
             // en passant
             if (op.type === "pawn" && ori_coords[1] !== dest_coords[1] && !dp ) {
@@ -576,16 +628,37 @@ class ChessDriver {
                 board[enpassant_coords[0]][enpassant_coords[1]] = null;
 
             }
-            // pawn to queen transformation
-            else if(op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*6){
-                op = new this.pieces.Queen(op.player)
+
+
+            // castling
+            if (op.type === "king" && ori_coords[0] === op.start_row){
+                if (dest_coords[1] === ori_coords[1] + 2){
+                    // move rook
+                    board[dest_coords[0]][dest_coords[1] - 1] = board[ori_coords[0]][7];
+                    // erase rook
+                    board[ori_coords[0]][7] = null;
+                }
+                else if(dest_coords[1] === ori_coords[1] - 2){
+                    // move rook
+                    board[dest_coords[0]][dest_coords[1] + 1] = board[ori_coords[0]][0];
+                    // erase rook
+                    board[ori_coords[0]][0] = null;
+                }
             }
 
             // standard moves
-            // move piece to destination
-            board[dest_coords[0]][dest_coords[1]] = op;
+            // activate hasMoved flag
+            op.hasMoved = true;
+
+
+            // (we MUST use this order -> remove then move to avoid removing the moving piece when we use this from
+            // the exposed king filter to check we are not currently in check, that means, when dest and ori are equal
+
             // remove piece from origin
             board[ori_coords[0]][ori_coords[1]] = null;
+            // move piece to destination
+            board[dest_coords[0]][dest_coords[1]] = op;
+
 
 
             return board

@@ -73,7 +73,7 @@ class ChessGame {
 
                 // remove highlighting of possible moves once this one has finished
                 for (let i=0;i<self.available_moves.length;i++){
-                    let [row, col] = self.available_moves[i];
+                    let [row, col] = self.available_moves[i].dest;
                     self.cell_at(row, col).style.backgroundColor = "";
                 }
             }
@@ -87,7 +87,7 @@ class ChessGame {
                 // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
                 self.available_moves = self.driver.get_valid_moves(self.cell2cords(self.ori_cell));
                 for (let i=0;i<self.available_moves.length;i++){
-                    let [row, col] = self.available_moves[i];
+                    let [row, col] = self.available_moves[i].dest;
                     self.cell_at(row, col).style.backgroundColor = "white";
                 }
 
@@ -116,7 +116,6 @@ class ChessGame {
         };
 
         this.update_frontend = function(board){
-
             let piece2char = {"pawn": "&#9817",
                               "rook": "&#9820",
                               "knight": "&#9822",
@@ -192,12 +191,14 @@ class ChessDriver {
                                     break;
                                 }
                                 if(this.piece_at(mov[0], mov[1], board)){
-                                    if(this.piece_at(mov[0], mov[1], board).player !== this.current_player){
-                                        valid_moves.push([mov[0], mov[1]]);
-                                    }
+                                    // if(this.piece_at(mov[0], mov[1], board).player !== this.current_player){
+                                    valid_moves.push({ori: coords, dest: [mov[0], mov[1]], capture: true});
+                                    // }
                                     break;
                                 }
-                                valid_moves.push([mov[0], mov[1]]);
+                                else{
+                                    valid_moves.push({ori: coords, dest: [mov[0], mov[1]]});
+                                }
 
                             }
                         }
@@ -224,10 +225,10 @@ class ChessDriver {
 
                         // Non offensive moves
                         if (!this.piece_at(row + this.dir, col, board)) {
-                            valid_moves.push([row + this.dir, col]);
+                            valid_moves.push({ori: coords, dest: [row + this.dir, col]});
                             // can move double if we are in the start row and there is no one in the dest
                             if (row === this.start_row && !this.piece_at(row + 2*this.dir, col, board)){
-                                valid_moves.push([row+this.dir*2, col]);
+                                valid_moves.push({ori: coords, dest: [row+this.dir*2, col]});
                                 this.enpassant_vulnerable = nmoves;
                             }
                         }
@@ -238,10 +239,11 @@ class ChessDriver {
 
                         // can move diagonally forward-right if it is to attack an enemy
                         if (piece2northeast && piece2northeast.player !== this.current_player){
-                            valid_moves.push([row+this.dir, col+this.dir]);
+                            valid_moves.push({ori: coords, dest: [row+this.dir, col+this.dir], capture: true});
+
                         }
                         if (piece2northwest && piece2northwest.player !== this.current_player){
-                            valid_moves.push([row+this.dir, col-this.dir]);
+                            valid_moves.push({ori: coords, dest: [row+this.dir, col-this.dir], capture: true});
                         }
 
                         // EN PASSANT
@@ -252,10 +254,10 @@ class ChessDriver {
                             let piece2west = this.piece_at(row, col-this.dir, board);
 
                             if (piece2east && nmoves === piece2east.enpassant_vulnerable + 1){
-                                valid_moves.push([row+this.dir, col+this.dir]);
+                                valid_moves.push({ori: coords, dest: [row+this.dir, col+this.dir], capture: true, enPassant: true});
                             }
                             if (piece2west && nmoves === piece2west.enpassant_vulnerable + 1){
-                                valid_moves.push([row+this.dir, col-this.dir]);
+                                valid_moves.push({ori: coords, dest: [row+this.dir, col-this.dir], capture: true, enPassant: true});
                             }
                         }
                         return valid_moves;
@@ -300,7 +302,12 @@ class ChessDriver {
                         // remove moves that fall out of the board
                         for (let i=0; i<potential_moves.length;i++){
                             if (! this.invalid_coords(...potential_moves[i])) {
-                                valid_moves.push(potential_moves[i]);
+                                if(this.piece_at(...potential_moves[i], board)){
+                                    valid_moves.push({ori: coords, dest: potential_moves[i], capture: true});
+                                }
+                                else{
+                                    valid_moves.push({ori: coords, dest: potential_moves[i]});
+                                }
                             }
                         }
                         return valid_moves
@@ -360,7 +367,12 @@ class ChessDriver {
                         // remove moves that fall out of the board
                         for (let i=0; i<potential_moves.length;i++){
                             if (! this.invalid_coords(...potential_moves[i])) {
-                                valid_moves.push(potential_moves[i]);
+                                if(this.piece_at(...potential_moves[i], board)){
+                                    valid_moves.push({ori: coords, dest: potential_moves[i], capture: true});
+                                }
+                                else{
+                                    valid_moves.push({ori: coords, dest: potential_moves[i]});
+                                }
                             }
                         }
 
@@ -384,7 +396,7 @@ class ChessDriver {
 
                                     // if the path is clear, add move to available ones
                                     if (ori_condition && betw_condition && dest_condition) {
-                                        valid_moves.push([row, col - 2])
+                                        valid_moves.push({ori: coords, dest: [row, col - 2], castling: true})
                                     }
                                 }
                                 // and the rook exists and has not moved yet
@@ -399,7 +411,7 @@ class ChessDriver {
 
                                     // if the path is clear, add move to availables ones
                                     if (ori_condition && betw_condition && dest_condition) {
-                                        valid_moves.push([row, col + 2])
+                                        valid_moves.push({ori: coords, dest: [row, col + 2], castling: true})
                                     }
                                 }
                             }
@@ -496,11 +508,11 @@ class ChessDriver {
                         let valid_moves = [];
                         for (let i=0; i < potential_moves.length; i++){
                             // check movement is inside board
-                            if (p.invalid_coords(potential_moves[i][0], potential_moves[i][1])){
+                            if (p.invalid_coords(potential_moves[i].dest[0], potential_moves[i].dest[1])){
                                     continue;
                                 }
                             // check movement is not to a cell occupied by a piece of the same player
-                            let recv_piece = p.piece_at(...potential_moves[i], board);
+                            let recv_piece = p.piece_at(...potential_moves[i].dest, board);
                             if (recv_piece){
                                 if (recv_piece.player === this.current_player){
                                     continue;
@@ -523,7 +535,7 @@ class ChessDriver {
                 // flag to indicate the movement has been identified as invalid
                 let is_invalid = false;
                 // build the board that movement would end up in
-                let after_board = this.apply_move2board(this.clone_board(board), ori_coords, potential_moves[i]);
+                let after_board = this.apply_move2board(this.clone_board(board), ori_coords, potential_moves[i].dest);
                 // find coords of player's king
                 let king_coords = null;
                 for(let x=0;x<8;x++) {
@@ -594,13 +606,12 @@ class ChessDriver {
         this.validate_move = function (dest_coords) {
             // destination coords must be included in list of valid moves created at dragstart
             for (let i=0;i<this.curr_valid_moves.length;i++){
-                if(this.curr_valid_moves[i][0] === dest_coords[0] &&
-                   this.curr_valid_moves[i][1] === dest_coords[1]){
+                if(this.curr_valid_moves[i].dest[0] === dest_coords[0] &&
+                   this.curr_valid_moves[i].dest[1] === dest_coords[1]){
 
                     this.move_counter++;
 
                     this.board = this.apply_move2board(this.clone_board(this.board), this.curr_ori_coords, dest_coords);
-                    console.log(this.board)
                     // change turn
                     this.invert_turn();
                     // indicate move was successful

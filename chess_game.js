@@ -1,4 +1,11 @@
-
+function sleep(milliseconds) {
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
+}
 
 class ChessGame {
     constructor(){
@@ -52,19 +59,8 @@ class ChessGame {
 
                 // now move if the movement is valid
                 if (self.driver.validate_move(self.cell2cords(dest_cell))){
-
                     // update frontend
                     self.update_frontend(self.driver.board);
-
-                    // ENPASSANT if the piece is a pawn, remove piece behind it (never happens with normal moves, removes killed if in en passant)
-                    // let [dest_row, dest_col] = cell2cords(dest_cell);
-                    // if (dest_row === driver.enpassant_row && dest_col === virtual_board.enpassant_col){
-                    //     // en passant move taken, kill piece located at the row before destination
-                    //     let [player_dir, start_row] = virtual_board.current_player === "white"? [1, 1]:[-1,6];
-                    //     let behind_cell = cell_at(dest_row - player_dir, dest_col);
-                    //     behind_cell.innerHTML = "";
-                    //     virtual_board.force_erase(dest_row - player_dir, dest_col)
-                    // }
                     // unflag drag event
                     self.piece_dragged = false;
                     // reverse board for the next player
@@ -150,6 +146,9 @@ class ChessGame {
         };
 
         this.setup_interaction_callbacks = function ()  {
+
+            // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
+            document.addEventListener("dragover", function (event) { event.preventDefault();});
             // fetch pieces again
             this.pieces = document.querySelectorAll("[class^=\"col\"] > span");
 
@@ -159,18 +158,60 @@ class ChessGame {
                 this.pieces[i].setAttribute("draggable", true);
                 // register callback for drag start
                 this.pieces[i].addEventListener("dragstart", this.on_drag_start);
-                // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
-                document.addEventListener("dragover", function (event) {
-                    event.preventDefault();
-                });
             }
 
             // register callback for drop
             document.addEventListener("drop", this.on_drop);
         };
 
-        // initialize game
-        this.setup_interaction_callbacks()
+
+        this.select_random_piece = function () {
+            let random_move = null;
+            let pieces_moves = self.driver.get_valid_moves();
+            let movable_pieces_moves = pieces_moves.filter(x => {return x.length > 0});
+            let chosen_piece_moves = movable_pieces_moves[Math.floor(Math.random() * movable_pieces_moves.length)];
+
+            // display highlighting of available moves
+            for (let i=0;i<chosen_piece_moves.length;i++){
+                let [row, col] = chosen_piece_moves[i].dest;
+                if (chosen_piece_moves[i].capture){
+                    self.cell_at(row, col).style.backgroundColor = "red";
+                }
+                else {
+                    self.cell_at(row, col).style.backgroundColor = "white";
+                }
+            }
+
+            return chosen_piece_moves
+        };
+
+
+        this.make_random_move = function (available_moves) {
+            let available_capture_moves =  available_moves.filter(x => {return x.capture === true});
+            let random_move = null;
+
+            // now choose capture move if available
+            if (available_capture_moves.length > 0){
+                random_move = available_capture_moves[Math.floor(Math.random() * available_capture_moves.length)];
+            }
+            else{
+                random_move = available_moves[Math.floor(Math.random() * available_moves.length)];
+            }
+
+            // apply movement to board and update driver state
+            self.driver.board = self.driver.apply_move2board(self.driver.clone_board(self.driver.board), random_move);
+            self.driver.invert_turn();
+            self.driver.move_counter++;
+
+            // update board with new movements
+            self.update_frontend(self.driver.board);
+
+            // remove highlighting of possible moves once this one has finished
+            for (let i=0;i<available_moves.length;i++){
+                let [row, col] = available_moves[i].dest;
+                self.cell_at(row, col).style.backgroundColor = "";
+            }
+        }
         
     }
 }
@@ -418,8 +459,6 @@ class ChessDriver {
                                     // and for the destination cell this is empty and the king would not be threaten in it
                                     let dest_condition = !this.piece_at(row, col + 2, board) && driver.exposed_king_filter(board, [{ori: coords, dest: [row, col + 2]}]).length > 0;
 
-                                    console.log(ori_condition, betw_condition, dest_condition)
-
                                     // if the path is clear, add move to availables ones
                                     if (ori_condition && betw_condition && dest_condition) {
                                         valid_moves.push({ori: coords, dest: [row, col + 2], castling: true})
@@ -463,11 +502,28 @@ class ChessDriver {
             return false;
         };
 
-        this.get_valid_moves = function (ori_coords) {
-            let valid_moves = this._get_valid_moves(ori_coords, this.clone_board(this.board), false);
-            // save these valid moves as the current ones in case a drop happens
-            this.curr_valid_moves = valid_moves;
-            return valid_moves
+        this.get_valid_moves = function (ori_coords=null) {
+            let valid_moves = null;
+            if (ori_coords) {
+                valid_moves = this._get_valid_moves(ori_coords, this.clone_board(this.board), false);
+                // save these valid moves as the current ones in case a drop happens
+                this.curr_valid_moves = valid_moves;
+                return valid_moves
+            }
+            else { // if no cell is specified, return list of all available movements
+                valid_moves = [];
+                for (let i = 0; i < this.board.length; i++) {
+                    for (let j = 0; j < this.board[i].length; j++) {
+                        let p = this.piece_at(i, j, this.board);
+                        if (p && p.player === this.current_player) {
+                            let moves = this._get_valid_moves([i, j], this.clone_board(this.board), false);
+                            valid_moves.push(moves);
+                        }
+                    }
+                }
+                // return [].concat.apply([], valid_moves);
+                return valid_moves
+            }
         };
 
         this._get_valid_moves = function (ori_coords, board, isfuture=false) {
@@ -700,5 +756,11 @@ class ChessDriver {
 
 
 let game = new ChessGame();
+// game.setup_interaction_callbacks();
+setInterval((function () {
+    let moves = game.select_random_piece();
+
+    setTimeout(function () {game.make_random_move(moves)}, 1000);
 
 
+}), 2000);

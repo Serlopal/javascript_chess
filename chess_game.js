@@ -88,7 +88,12 @@ class ChessGame {
                 self.available_moves = self.driver.get_valid_moves(self.cell2cords(self.ori_cell));
                 for (let i=0;i<self.available_moves.length;i++){
                     let [row, col] = self.available_moves[i].dest;
-                    self.cell_at(row, col).style.backgroundColor = "white";
+                    if (self.available_moves[i].capture){
+                        self.cell_at(row, col).style.backgroundColor = "red";
+                    }
+                    else {
+                        self.cell_at(row, col).style.backgroundColor = "white";
+                    }
                 }
 
                 // flag we have dragged a piece

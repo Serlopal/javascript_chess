@@ -93,6 +93,8 @@ class ChessGame {
 
                 // flag we have dragged a piece
                 self.piece_dragged = true;
+
+                console.log(self.driver.board)
             }
         };
 
@@ -392,7 +394,6 @@ class ChessDriver {
                                     let betw_condition = !this.piece_at(row, col - 1, board) && driver.exposed_king_filter(board, [{ori: coords, dest:[row, col - 1]}]).length > 0;
                                     // and for the destination cell this is empty and the king would not be threaten in it
                                     let dest_condition = !this.piece_at(row, col - 2, board) && driver.exposed_king_filter(board, [{ori:coords, dest: [row, col - 2]}]).length > 0;
-
                                     // if the path is clear, add move to available ones
                                     if (ori_condition && betw_condition && dest_condition) {
                                         valid_moves.push({ori: coords, dest: [row, col - 2], castling: true})
@@ -407,6 +408,8 @@ class ChessDriver {
                                     let betw_condition = !this.piece_at(row, col + 1, board) && driver.exposed_king_filter(board, [{ori: coords, dest: [row, col + 1]}]).length > 0;
                                     // and for the destination cell this is empty and the king would not be threaten in it
                                     let dest_condition = !this.piece_at(row, col + 2, board) && driver.exposed_king_filter(board, [{ori: coords, dest: [row, col + 2]}]).length > 0;
+
+                                    console.log(ori_condition, betw_condition, dest_condition)
 
                                     // if the path is clear, add move to availables ones
                                     if (ori_condition && betw_condition && dest_condition) {
@@ -558,8 +561,8 @@ class ChessDriver {
                                 let after_valid_moves = this._get_valid_moves([x,y], after_board, true);
                                 // the move is illegal if this piece can move to the kings position next
                                 for(let q=0;q<after_valid_moves.length;q++){
-                                    if (after_valid_moves[q][0] === king_coords[0] &&
-                                        after_valid_moves[q][1] === king_coords[1]){
+                                    if (after_valid_moves[q].dest[0] === king_coords[0] &&
+                                        after_valid_moves[q].dest[1] === king_coords[1]){
                                         is_invalid = true;
                                         break for_each_enemy;
                                     }
@@ -578,8 +581,14 @@ class ChessDriver {
         this.clone_board = function (board){
             // returns a copy by value of the current state board
             let new_board = [];
-            for (let i = 0; i < board.length; i++)
+            for (let i = 0; i < board.length; i++) {
                 new_board[i] = board[i].slice();
+                for (let j = 0; j < board[i].length; j++) {
+                    if (this.piece_at(i,j, board)) {
+                        new_board[i][j] = Object.assign(Object.create(Object.getPrototypeOf(board[i][j])), board[i][j]);
+                    }
+                }
+            }
             return new_board;
         };
 

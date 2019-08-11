@@ -112,12 +112,11 @@ class ChessGame {
                 if (self.driver.validate_move(self.cell2cords(dest_cell))){
                     // update frontend
                     self.update_frontend(self.driver.board);
-                    // unflag drag event
-                    self.piece_dragged = false;
                     // reverse board for the next player
                     self.reverse_board(document.querySelector("#board"));
                 }
-
+                // unflag drag event
+                self.piece_dragged = false;
                 // remove highlighting of possible moves once this one has finished
                 for (let i=0;i<self.available_moves.length;i++){
                     let [row, col] = self.available_moves[i].dest;
@@ -217,7 +216,6 @@ class ChessGame {
 
         };
 
-
         this.select_random_piece = function () {
             let random_move = null;
             let pieces_moves = self.driver.get_valid_moves();
@@ -242,7 +240,6 @@ class ChessGame {
 
             return chosen_piece_moves
         };
-
 
         this.make_random_move = function (available_moves) {
             let available_capture_moves =  available_moves.filter(x => {return x.capture === true});

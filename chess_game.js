@@ -391,7 +391,7 @@ class ChessDriver {
                                     // and for the in-between cell this is empty and the king would not be threaten in it
                                     let betw_condition = !this.piece_at(row, col - 1, board) && driver.exposed_king_filter(board, [{ori: coords, dest:[row, col - 1]}]).length > 0;
                                     // and for the destination cell this is empty and the king would not be threaten in it
-                                    let dest_condition = !this.piece_at(row, col - 2, board) && driver.exposed_king_filter(coords, board, [{ori:coords, dest: [row, col - 2]}]).length > 0;
+                                    let dest_condition = !this.piece_at(row, col - 2, board) && driver.exposed_king_filter(board, [{ori:coords, dest: [row, col - 2]}]).length > 0;
 
                                     // if the path is clear, add move to available ones
                                     if (ori_condition && betw_condition && dest_condition) {
@@ -406,7 +406,7 @@ class ChessDriver {
                                     // and for the in-between cell this is empty and the king would not be threaten in it
                                     let betw_condition = !this.piece_at(row, col + 1, board) && driver.exposed_king_filter(board, [{ori: coords, dest: [row, col + 1]}]).length > 0;
                                     // and for the destination cell this is empty and the king would not be threaten in it
-                                    let dest_condition = !this.piece_at(row, col + 2, board) && driver.exposed_king_filter(coords, board, [{ori: coords, dest: [row, col + 2]}]).length > 0;
+                                    let dest_condition = !this.piece_at(row, col + 2, board) && driver.exposed_king_filter(board, [{ori: coords, dest: [row, col + 2]}]).length > 0;
 
                                     // if the path is clear, add move to availables ones
                                     if (ori_condition && betw_condition && dest_condition) {

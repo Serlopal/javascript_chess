@@ -97,6 +97,58 @@ class ChessGame {
             }
         };
 
+        this.on_click = function(event){
+            if (self.piece_dragged){
+                // get destination cell, both if it is empty or with a piece inside
+                let dest_cell = null;
+                if(event.target.className.includes("piece")){ // if we attack another piece
+                    dest_cell = event.target.parentElement;
+                }
+                else{
+                    dest_cell = event.target;
+                }
+
+                // now move if the movement is valid
+                if (self.driver.validate_move(self.cell2cords(dest_cell))){
+                    // update frontend
+                    self.update_frontend(self.driver.board);
+                    // unflag drag event
+                    self.piece_dragged = false;
+                    // reverse board for the next player
+                    self.reverse_board(document.querySelector("#board"));
+                }
+
+                // remove highlighting of possible moves once this one has finished
+                for (let i=0;i<self.available_moves.length;i++){
+                    let [row, col] = self.available_moves[i].dest;
+                    self.cell_at(row, col).style.backgroundColor = "";
+                }
+            }
+            else{
+                // we must drag a piece and it must belong to the player to whom the turn belongs
+                if (event.target.className.includes("piece") && event.target.className.split(" ")[0] === self.driver.current_player) {
+                    // compute available moves and highlight them
+                    self.ori_cell = event.target.parentElement;
+                    // we need get_valid_moves to use a external board to use it to check the king is not threaten in the next step
+                    self.available_moves = self.driver.get_valid_moves(self.cell2cords(self.ori_cell));
+                    for (let i=0;i<self.available_moves.length;i++){
+                        let [row, col] = self.available_moves[i].dest;
+                        if (self.available_moves[i].capture){
+                            self.cell_at(row, col).style.backgroundColor = "red";
+                        }
+                        else {
+                            self.cell_at(row, col).style.backgroundColor = "white";
+                        }
+                    }
+
+                    // flag we have dragged a piece
+                    self.piece_dragged = true;
+                }
+            }
+
+
+        };
+
         this.cell_at = function(row, col){
         return document.querySelector(".row_" + row + "> .col_" + col);
     };
@@ -156,18 +208,12 @@ class ChessGame {
                 this.pieces[i].setAttribute("draggable", true);
                 // register callback for drag start
                 this.pieces[i].addEventListener("dragstart", this.on_drag_start);
-
-                // register callback to start move by clicking
-                this.pieces[i].addEventListener("click", this.on_drag_start);
             }
 
             // register callback for drop
             document.addEventListener("drop", this.on_drop);
-            document.addEventListener("dblclick", this.on_drop);
-
-
-
-            // register callbacks to play by clicking
+            // register callback to play by clicking
+            document.addEventListener("click", this.on_click);
 
         };
 

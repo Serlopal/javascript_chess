@@ -76,8 +76,6 @@ class ChessGame {
         };
 
         this.on_drag_start = function(event){
-            event.target.classList.add('block-hide');
-
             // we must drag a piece and it must belong to the player to whom the turn belongs
             if (event.target.className.includes("piece") && event.target.className.split(" ")[0] === self.driver.current_player) {
                 // compute available moves and highlight them
@@ -158,10 +156,19 @@ class ChessGame {
                 this.pieces[i].setAttribute("draggable", true);
                 // register callback for drag start
                 this.pieces[i].addEventListener("dragstart", this.on_drag_start);
+
+                // register callback to start move by clicking
+                this.pieces[i].addEventListener("click", this.on_drag_start);
             }
 
             // register callback for drop
             document.addEventListener("drop", this.on_drop);
+            document.addEventListener("dblclick", this.on_drop);
+
+
+
+            // register callbacks to play by clicking
+
         };
 
 
@@ -762,12 +769,12 @@ class ChessDriver {
 
 
 let game = new ChessGame();
-// game.setup_interaction_callbacks();
-let randomGame = setInterval((function () {
-                            let moves = game.select_random_piece();
-                            if (!moves){
-                                clearInterval(randomGame);
-                                return
-                            }
-                            setTimeout(function () {game.make_random_move(moves)}, 100);
-                         }), 200);
+game.setup_interaction_callbacks();
+// let randomGame = setInterval((function () {
+//                             let moves = game.select_random_piece();
+//                             if (!moves){
+//                                 clearInterval(randomGame);
+//                                 return
+//                             }
+//                             setTimeout(function () {game.make_random_move(moves)}, 100);
+//                          }), 200);

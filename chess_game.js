@@ -275,26 +275,28 @@ class ChessDriver {
                         let valid_moves = [];
 
                         // Non offensive moves
-                        if (!this.piece_at(row + this.dir, col, board)) {
+                        if (!this.invalid_coords(row + this.dir, col) && !this.piece_at(row + this.dir, col, board)) {
                             valid_moves.push({ori: coords, dest: [row + this.dir, col]});
                             // can move double if we are in the start row and there is no one in the dest
-                            if (row === this.start_row && !this.piece_at(row + 2*this.dir, col, board)){
-                                valid_moves.push({ori: coords, dest: [row+this.dir*2, col]});
+                            if (row === this.start_row && !this.piece_at(row + 2 * this.dir, col, board)) {
+                                valid_moves.push({ori: coords, dest: [row + this.dir * 2, col]});
                                 this.enpassant_vulnerable = nmoves;
                             }
                         }
 
                         // Offensive moves
-                        let piece2northeast = this.piece_at(row+this.dir, col+this.dir, board);
-                        let piece2northwest = this.piece_at(row+this.dir, col-this.dir, board);
-
-                        // can move diagonally forward-right if it is to attack an enemy
-                        if (piece2northeast && piece2northeast.player !== this.current_player){
-                            valid_moves.push({ori: coords, dest: [row+this.dir, col+this.dir], capture: true});
-
+                        if (!this.invalid_coords(row + this.dir, col + this.dir)) {
+                            let piece2northeast = this.piece_at(row + this.dir, col + this.dir, board);
+                            // can move diagonally forward-right if it is to attack an enemy
+                            if (piece2northeast && piece2northeast.player !== this.current_player) {
+                                valid_moves.push({ori: coords, dest: [row + this.dir, col + this.dir], capture: true});
+                            }
                         }
-                        if (piece2northwest && piece2northwest.player !== this.current_player){
-                            valid_moves.push({ori: coords, dest: [row+this.dir, col-this.dir], capture: true});
+                        if (!this.invalid_coords(row + this.dir, col - this.dir)) {
+                            let piece2northwest = this.piece_at(row + this.dir, col - this.dir, board);
+                            if (piece2northwest && piece2northwest.player !== this.current_player) {
+                                valid_moves.push({ori: coords, dest: [row + this.dir, col - this.dir], capture: true});
+                            }
                         }
 
                         // EN PASSANT
@@ -704,9 +706,9 @@ class ChessDriver {
             let ori_coords = move.ori;
             let dest_coords = move.dest;
 
-
             // promotion
-            if (op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*7){
+            console.log(op.type, dest_coords[0], op.start_row, op.dir)
+            if (op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*6){
                 op = new this.pieces.Queen(op.player)
             }
 
@@ -758,9 +760,6 @@ class ChessDriver {
 let game = new ChessGame();
 // game.setup_interaction_callbacks();
 setInterval((function () {
-    let moves = game.select_random_piece();
-
-    setTimeout(function () {game.make_random_move(moves)}, 1000);
-
-
-}), 2000);
+                            let moves = game.select_random_piece();
+                            setTimeout(function () {game.make_random_move(moves)}, 100);
+                         }), 200);

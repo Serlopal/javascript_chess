@@ -171,6 +171,11 @@ class ChessGame {
             let movable_pieces_moves = pieces_moves.filter(x => {return x.length > 0});
             let chosen_piece_moves = movable_pieces_moves[Math.floor(Math.random() * movable_pieces_moves.length)];
 
+            // if chosen pieces is empty.... check mate!
+            if (!chosen_piece_moves) {
+                return null
+            }
+
             // display highlighting of available moves
             for (let i=0;i<chosen_piece_moves.length;i++){
                 let [row, col] = chosen_piece_moves[i].dest;
@@ -707,7 +712,6 @@ class ChessDriver {
             let dest_coords = move.dest;
 
             // promotion
-            console.log(op.type, dest_coords[0], op.start_row, op.dir)
             if (op.type === "pawn" && dest_coords[0] === op.start_row + op.dir*6){
                 op = new this.pieces.Queen(op.player)
             }
@@ -759,7 +763,11 @@ class ChessDriver {
 
 let game = new ChessGame();
 // game.setup_interaction_callbacks();
-setInterval((function () {
+let randomGame = setInterval((function () {
                             let moves = game.select_random_piece();
+                            if (!moves){
+                                clearInterval(randomGame);
+                                return
+                            }
                             setTimeout(function () {game.make_random_move(moves)}, 100);
                          }), 200);

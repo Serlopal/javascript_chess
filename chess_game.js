@@ -38,7 +38,7 @@ class ChessGame {
             this.board_rotated = !this.board_rotated;
         };
 
-        this.on_drop = function(event){
+        this.on_drop = function(event)  {
             event.preventDefault();
             if (self.piece_dragged){
                 // get destination cell, both if it is empty or with a piece inside
@@ -79,7 +79,9 @@ class ChessGame {
             }
         };
 
-        this.on_drag = function(event){
+        this.on_drag_start = function(event){
+            event.target.classList.add('block-hide');
+
             // we must drag a piece and it must belong to the player to whom the turn belongs
             if (event.target.className.includes("piece") && event.target.className.split(" ")[0] === self.driver.current_player) {
                 // compute available moves and highlight them
@@ -98,8 +100,6 @@ class ChessGame {
 
                 // flag we have dragged a piece
                 self.piece_dragged = true;
-
-                console.log(self.driver.board)
             }
         };
 
@@ -154,18 +154,22 @@ class ChessGame {
             this.pieces = document.querySelectorAll("[class^=\"col\"] > span");
 
             // make pieces draggable
-            for (let i=0; i < this.pieces.length; i++){
+            for (let i=0; i < this.pieces.length; i++) {
                 // makes pieces draggable
                 this.pieces[i].setAttribute("draggable", true);
+                // register callback for drag start
+                this.pieces[i].addEventListener("dragstart", this.on_drag_start);
+                // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
+                document.addEventListener("dragover", function (event) {
+                    event.preventDefault();
+                });
             }
-            // register callback for drag start
-            // TODO change this to add listeners on pieces for drag and cell/pieces for drop
-            document.addEventListener("dragstart", this.on_drag);
+
             // register callback for drop
             document.addEventListener("drop", this.on_drop);
-            // By default, data/elements cannot be dropped in other elements. To allow a drop, we must prevent the default handling of the element
-            document.addEventListener("dragover", function(event) {event.preventDefault();});
         };
+
+        // initialize game
         this.setup_interaction_callbacks()
         
     }

@@ -322,10 +322,8 @@ class ChessDriver {
                     this.dir = player === "white" ? 1:-1;
                     this.start_row = player === "white" ? 1:6;
                     this.enpassant_vulnerable = false;
-                    this.enpassant_row = null;
-                    this.enpassant_col = null;
 
-                    this.get_valid_moves = function (coords, board, nmoves) {
+                    this.get_valid_moves = function (coords, board, nmoves, isfuture=false) {
                         let [row, col] = coords;
                         let valid_moves = [];
 
@@ -335,6 +333,7 @@ class ChessDriver {
                             // can move double if we are in the start row and there is no one in the dest
                             if (row === this.start_row && !this.piece_at(row + 2 * this.dir, col, board)) {
                                 valid_moves.push({ori: coords, dest: [row + this.dir * 2, col]});
+                                // TODO FIX EN PASSANT
                                 this.enpassant_vulnerable = nmoves;
                             }
                         }
@@ -354,18 +353,23 @@ class ChessDriver {
                             }
                         }
 
-                        // EN PASSANT
-                        // can also move diagonally if we are in the 5th row and col+1 or col-1 is same as
-                        // column flagged as a pawn just moved double
-                        if (row === this.start_row + 3*this.dir){
-                            let piece2east = this.piece_at(row, col+this.dir, board);
-                            let piece2west = this.piece_at(row, col-this.dir, board);
+                        if (!isfuture){
+                            // EN PASSANT
+                            // can also move diagonally if we are in the 5th row and col+1 or col-1 is same as
+                            // column flagged as a pawn just moved double
+                            if (row === this.start_row + 3*this.dir){
+                                let piece2east = this.piece_at(row, col+this.dir, board);
+                                let piece2west = this.piece_at(row, col-this.dir, board);
 
-                            if (piece2east && nmoves === piece2east.enpassant_vulnerable + 1){
-                                valid_moves.push({ori: coords, dest: [row+this.dir, col+this.dir], capture: true, enPassant: true});
-                            }
-                            if (piece2west && nmoves === piece2west.enpassant_vulnerable + 1){
-                                valid_moves.push({ori: coords, dest: [row+this.dir, col-this.dir], capture: true, enPassant: true});
+                                // console.log(piece2west)
+                                // console.log(piece2east)
+
+                                if (piece2east && nmoves === piece2east.enpassant_vulnerable + 1){
+                                    valid_moves.push({ori: coords, dest: [row+this.dir, col+this.dir], capture: true, enPassant: true});
+                                }
+                                if (piece2west && nmoves === piece2west.enpassant_vulnerable + 1){
+                                    valid_moves.push({ori: coords, dest: [row+this.dir, col-this.dir], capture: true, enPassant: true});
+                                }
                             }
                         }
                         return valid_moves;
@@ -562,7 +566,7 @@ class ChessDriver {
         this.get_valid_moves = function (ori_coords=null) {
             let valid_moves = null;
             if (ori_coords) {
-                valid_moves = this._get_valid_moves(ori_coords, this.clone_board(this.board), false);
+                valid_moves = this._get_valid_moves(ori_coords, this.board, false);
                 // save these valid moves as the current ones in case a drop happens
                 this.curr_valid_moves = valid_moves;
                 return valid_moves
@@ -596,11 +600,11 @@ class ChessDriver {
 
             if (p.type === "pawn"){
                 // pawns need to know the number of turns to deactivate en passant vulnerabilities
-                valid_moves = p.get_valid_moves(ori_coords, board, this.move_counter);
+                valid_moves = p.get_valid_moves(ori_coords, board, this.move_counter, isfuture);
             }
             else if (p.type === "king"){
                 // king needs the exposed king filter to validate castling moves
-                valid_moves = p.get_valid_moves(ori_coords, board, this, isfuture);
+                valid_moves = p.get_valid_moves(ori_coords, this.clone_board(board), this, isfuture);
             }
             else{
                 valid_moves = p.get_valid_moves(ori_coords, board);
@@ -821,3 +825,4 @@ game.setup_interaction_callbacks();
 //                             }
 //                             setTimeout(function () {game.make_random_move(moves)}, 100);
 //                          }), 200);
+// TODO FIX EN PASSANT
